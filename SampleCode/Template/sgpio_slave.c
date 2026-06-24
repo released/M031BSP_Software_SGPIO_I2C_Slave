@@ -1,0 +1,1012 @@
+/*_____ I N C L U D E S ____________________________________________________*/
+#include <stdio.h>
+#include <string.h>
+#include "NuMicro.h"
+#include "sgpio_slave.h"
+
+/*_____ D E C L A R A T I O N S ____________________________________________*/
+extern unsigned long get_systick(void);
+extern uint32_t get_tick(void);
+
+typedef struct
+{
+    uint32_t frame_count;
+    uint32_t dropped_frames;
+    uint16_t bit_count;
+    uint16_t act_mask;
+    uint16_t locate_mask;
+    uint16_t fail_mask;
+    uint8_t raw[SGPIO_SLAVE_RX_MAX_BYTES];
+    uint8_t raw_len;
+    uint8_t sload_raw;
+    uint8_t sload_raw_valid;
+    uint8_t low_sync_count;
+    uint8_t overflow;
+    uint8_t valid;
+} SGPIO_FRAME_T;
+
+/*_____ D E F I N I T I O N S ______________________________________________*/
+#define SGPIO_LOW_SYNC_MIN_BITS           (5U)
+#define SGPIO_SLOAD_RAW_BITS              (4U)
+#define SGPIO_DATA_BITS_PER_SLOT          (3U)
+#define SGPIO_DECODE_SLOT_COUNT           (SGPIO_SLAVE_MAX_SLOTS)
+#define SGPIO_SLOT_BIT_MAX                (SGPIO_SLAVE_MAX_SLOTS * SGPIO_DATA_BITS_PER_SLOT)
+#define SGPIO_FRAME_GAP_TIMEOUT_MS        (5UL)
+#define SGPIO_FRAME_ARM_TIMEOUT_MS        (20UL)
+#define SGPIO_FRAME_LOG_FIRST_N           (1UL)
+#define SGPIO_FRAME_LOG_MIN_INTERVAL_MS   (1000UL)
+#define SGPIO_FRAME_STABLE_REQUIRED       (2U)
+#define SGPIO_UNSTABLE_LOG_MIN_INTERVAL_MS (3000UL)
+
+#define SGPIO_LED_OD_COUNT                (8U)
+#define SGPIO_LED_GROUP_COUNT             (4U)
+#define SGPIO_LED_MODE_OFF                (0U)
+#define SGPIO_LED_MODE_ON                 (1U)
+#define SGPIO_LED_MODE_BLINK_1HZ          (2U)
+#define SGPIO_LED_MODE_BLINK_4HZ          (3U)
+#define SGPIO_LED_ACTIVITY_OFF_LEVEL      (0U)
+#define SGPIO_LED_ACTIVITY_ON_LEVEL       (1U)
+#define SGPIO_LED_STATUS_OFF_LEVEL        (1U)
+#define SGPIO_LED_STATUS_ON_LEVEL         (0U)
+#define SGPIO_LED_1HZ_HALF_PERIOD_MS      (500UL)
+#define SGPIO_LED_4HZ_HALF_PERIOD_MS      (125UL)
+#define LED0_4_ACT_N                      (PF4)
+#define LED1_5_ACT_N                      (PF3)
+#define LED2_6_ACT_N                      (PF2)
+#define LED3_7_ACT_N                      (PC7)
+#define LED3_7_STA_N                      (PC2)
+#define LED2_6_STA_N                      (PC3)
+#define LED1_5_STA_N                      (PC4)
+#define LED0_4_STA_N                      (PC5)
+#define LED0_4_ACT_N_PORT                 (PF)
+#define LED1_5_ACT_N_PORT                 (PF)
+#define LED2_6_ACT_N_PORT                 (PF)
+#define LED3_7_ACT_N_PORT                 (PC)
+#define LED3_7_STA_N_PORT                 (PC)
+#define LED2_6_STA_N_PORT                 (PC)
+#define LED1_5_STA_N_PORT                 (PC)
+#define LED0_4_STA_N_PORT                 (PC)
+#define LED0_4_ACT_N_PIN_MASK             (BIT4)
+#define LED1_5_ACT_N_PIN_MASK             (BIT3)
+#define LED2_6_ACT_N_PIN_MASK             (BIT2)
+#define LED3_7_ACT_N_PIN_MASK             (BIT7)
+#define LED3_7_STA_N_PIN_MASK             (BIT2)
+#define LED2_6_STA_N_PIN_MASK             (BIT3)
+#define LED1_5_STA_N_PIN_MASK             (BIT4)
+#define LED0_4_STA_N_PIN_MASK             (BIT5)
+#ifndef SPLIT_ODn_GROUP_A_B
+#define SPLIT_ODn_GROUP_A_B               (0U)
+#endif
+#define SPLIT_ODn_GROUP_PCB_A             (0U)
+#define SPLIT_ODn_GROUP_PCB_B             (1U)
+#ifndef SPLIT_ODn_GROUP_BOARD
+#define SPLIT_ODn_GROUP_BOARD             (SPLIT_ODn_GROUP_PCB_A)
+#endif
+
+static volatile uint8_t g_sgpio_capture_active = 0U;
+static volatile uint8_t g_sgpio_marker_seen = 0U;
+static volatile uint8_t g_sgpio_frame_ready = 0U;
+static volatile uint8_t g_sgpio_overflow = 0U;
+static volatile uint8_t g_sgpio_low_sync_count = 0U;
+static volatile uint8_t g_sgpio_low_sync_at_marker = 0U;
+static volatile uint8_t g_sgpio_sload_raw = 0U;
+static volatile uint8_t g_sgpio_sload_raw_valid = 0U;
+static volatile uint16_t g_sgpio_slot_bit_count = 0U;
+static volatile uint8_t g_sgpio_raw[SGPIO_SLAVE_RX_MAX_BYTES];
+static volatile uint32_t g_sgpio_frame_count = 0UL;
+static volatile uint32_t g_sgpio_dropped_frames = 0UL;
+static volatile unsigned long g_sgpio_capture_start_tick = 0UL;
+static volatile unsigned long g_sgpio_last_clock_tick = 0UL;
+
+static SGPIO_FRAME_T g_sgpio_last_frame;
+static SGPIO_FRAME_T g_sgpio_filter_candidate;
+static unsigned long g_sgpio_last_log_tick = 0UL;
+static unsigned long g_sgpio_last_unstable_log_tick = 0UL;
+static uint8_t g_sgpio_filter_candidate_valid = 0U;
+static uint8_t g_sgpio_filter_repeat_count = 0U;
+static uint8_t g_sgpio_activity_mode[SGPIO_LED_GROUP_COUNT];
+static uint8_t g_sgpio_status_mode[SGPIO_LED_GROUP_COUNT];
+static uint32_t g_sgpio_led_last_apply_tick = 0xFFFFFFFFUL;
+
+/*_____ F U N C T I O N S __________________________________________________*/
+static void sgpio_clear_raw(void)
+{
+    uint8_t i;
+
+    for (i = 0U; i < SGPIO_SLAVE_RX_MAX_BYTES; i++)
+    {
+        g_sgpio_raw[i] = 0U;
+    }
+}
+
+static void sgpio_reset_capture_state(void)
+{
+    sgpio_clear_raw();
+    g_sgpio_capture_active = 0U;
+    g_sgpio_marker_seen = 0U;
+    g_sgpio_overflow = 0U;
+    g_sgpio_low_sync_count = 0U;
+    g_sgpio_low_sync_at_marker = 0U;
+    g_sgpio_sload_raw = 0U;
+    g_sgpio_sload_raw_valid = 0U;
+    g_sgpio_slot_bit_count = 0U;
+    g_sgpio_capture_start_tick = 0UL;
+    g_sgpio_last_clock_tick = 0UL;
+}
+
+static void sgpio_store_sdata_bit(uint8_t bit_value)
+{
+    uint16_t bit_index;
+    uint8_t byte_index;
+    uint8_t bit_mask;
+
+    bit_index = g_sgpio_slot_bit_count;
+    if (bit_index >= SGPIO_SLOT_BIT_MAX)
+    {
+        /* Ignore frame padding after the 16 standard SGPIO slots. */
+        return;
+    }
+
+    byte_index = (uint8_t)(bit_index >> 3U);
+    bit_mask = (uint8_t)(1U << (bit_index & 0x7U));
+
+    if (byte_index < SGPIO_SLAVE_RX_MAX_BYTES)
+    {
+        if (bit_value != 0U)
+        {
+            g_sgpio_raw[byte_index] = (uint8_t)(g_sgpio_raw[byte_index] | bit_mask);
+        }
+    }
+    else
+    {
+        g_sgpio_overflow = 1U;
+    }
+
+    g_sgpio_slot_bit_count++;
+}
+
+static uint8_t sgpio_get_raw_bit(const uint8_t *raw, uint16_t bit_index)
+{
+    uint8_t byte_index;
+    uint8_t bit_mask;
+    uint8_t value;
+
+    byte_index = (uint8_t)(bit_index >> 3U);
+    bit_mask = (uint8_t)(1U << (bit_index & 0x7U));
+
+    if (byte_index >= SGPIO_SLAVE_RX_MAX_BYTES)
+    {
+        value = 0U;
+    }
+    else if ((raw[byte_index] & bit_mask) != 0U)
+    {
+        value = 1U;
+    }
+    else
+    {
+        value = 0U;
+    }
+
+    return value;
+}
+
+static uint8_t sgpio_is_valid_captured_bit_count(uint16_t bit_count)
+{
+    uint8_t valid;
+
+    /*
+     * Pico emits SGPIO pairs in 16-pair PIO words. After the restart marker,
+     * a valid M032 RX-only capture is 26 bits for slot counts 1..8, 42 bits
+     * for slot counts 9..14, or capped at 48 bits for slot counts 15..16.
+     */
+    if ((bit_count == 26U) || (bit_count == 42U) || (bit_count == SGPIO_SLOT_BIT_MAX))
+    {
+        valid = 1U;
+    }
+    else
+    {
+        valid = 0U;
+    }
+
+    return valid;
+}
+
+static void sgpio_finalize_capture(void)
+{
+    if ((g_sgpio_marker_seen != 0U) && (g_sgpio_slot_bit_count > 0U) && (g_sgpio_frame_ready == 0U))
+    {
+        g_sgpio_frame_count++;
+        g_sgpio_frame_ready = 1U;
+    }
+    else if (g_sgpio_frame_ready != 0U)
+    {
+        g_sgpio_dropped_frames++;
+    }
+
+    g_sgpio_capture_active = 0U;
+    g_sgpio_marker_seen = 0U;
+}
+
+static void sgpio_copy_frame_from_isr(SGPIO_FRAME_T *frame)
+{
+    uint8_t i;
+
+    memset(frame, 0, sizeof(*frame));
+    frame->frame_count = g_sgpio_frame_count;
+    frame->dropped_frames = g_sgpio_dropped_frames;
+    frame->bit_count = g_sgpio_slot_bit_count;
+    frame->overflow = g_sgpio_overflow;
+    frame->sload_raw = (uint8_t)(g_sgpio_sload_raw & 0x0FU);
+    frame->sload_raw_valid = g_sgpio_sload_raw_valid;
+    frame->low_sync_count = g_sgpio_low_sync_at_marker;
+    frame->valid = 0U;
+
+    if ((frame->low_sync_count >= SGPIO_LOW_SYNC_MIN_BITS) &&
+        (sgpio_is_valid_captured_bit_count(frame->bit_count) != 0U))
+    {
+        frame->valid = 1U;
+    }
+
+    frame->raw_len = (uint8_t)((frame->bit_count + 7U) >> 3U);
+    if (frame->raw_len > SGPIO_SLAVE_RX_MAX_BYTES)
+    {
+        frame->raw_len = SGPIO_SLAVE_RX_MAX_BYTES;
+    }
+
+    for (i = 0U; i < SGPIO_SLAVE_RX_MAX_BYTES; i++)
+    {
+        frame->raw[i] = g_sgpio_raw[i];
+    }
+
+    g_sgpio_frame_ready = 0U;
+}
+
+static void sgpio_decode_frame(SGPIO_FRAME_T *frame)
+{
+    uint8_t slot;
+    uint16_t bit_index;
+
+    frame->act_mask = 0U;
+    frame->locate_mask = 0U;
+    frame->fail_mask = 0U;
+
+    for (slot = 0U; slot < SGPIO_DECODE_SLOT_COUNT; slot++)
+    {
+        bit_index = (uint16_t)(slot * SGPIO_DATA_BITS_PER_SLOT);
+        if ((uint16_t)(bit_index + 2U) >= frame->bit_count)
+        {
+            break;
+        }
+
+        if (sgpio_get_raw_bit(frame->raw, bit_index) != 0U)
+        {
+            frame->act_mask |= (uint16_t)(1UL << slot);
+        }
+        if (sgpio_get_raw_bit(frame->raw, (uint16_t)(bit_index + 1U)) != 0U)
+        {
+            frame->locate_mask |= (uint16_t)(1UL << slot);
+        }
+        if (sgpio_get_raw_bit(frame->raw, (uint16_t)(bit_index + 2U)) != 0U)
+        {
+            frame->fail_mask |= (uint16_t)(1UL << slot);
+        }
+    }
+}
+
+static void sgpio_print_slot_mask(const char *label, uint16_t mask)
+{
+    uint8_t slot;
+    uint8_t printed;
+
+    printf("%s", label);
+    printed = 0U;
+    for (slot = 0U; slot < SGPIO_DECODE_SLOT_COUNT; slot++)
+    {
+        if ((mask & (uint16_t)(1UL << slot)) != 0U)
+        {
+            if (printed != 0U)
+            {
+                printf(",");
+            }
+            printf("%u", (unsigned int)slot);
+            printed = 1U;
+        }
+    }
+
+    if (printed == 0U)
+    {
+        printf("-");
+    }
+}
+
+static void sgpio_print_slot_decode(const SGPIO_FRAME_T *frame)
+{
+    printf("  slots: ");
+    sgpio_print_slot_mask("ACT=", frame->act_mask);
+    printf(" ");
+    sgpio_print_slot_mask("LOCATE=", frame->locate_mask);
+    printf(" ");
+    sgpio_print_slot_mask("FAIL=", frame->fail_mask);
+    printf("\r\n");
+}
+
+static void sgpio_print_raw_bytes(const SGPIO_FRAME_T *frame)
+{
+    uint8_t i;
+
+    printf("  raw:");
+    for (i = 0U; i < frame->raw_len; i++)
+    {
+        printf(" %02X", (unsigned int)frame->raw[i]);
+    }
+    if (frame->raw_len == 0U)
+    {
+        printf(" -");
+    }
+    printf("\r\n");
+}
+
+static void sgpio_print_slot_bits(const SGPIO_FRAME_T *frame)
+{
+    uint8_t slot;
+    uint8_t act_bit;
+    uint8_t locate_bit;
+    uint8_t fail_bit;
+    uint8_t printed;
+    uint16_t bit_index;
+
+    printed = 0U;
+    printf("  bits S0..S7:");
+    for (slot = 0U; slot < SGPIO_DECODE_SLOT_COUNT; slot++)
+    {
+        bit_index = (uint16_t)(slot * SGPIO_DATA_BITS_PER_SLOT);
+        if ((uint16_t)(bit_index + 2U) >= frame->bit_count)
+        {
+            break;
+        }
+
+        act_bit = sgpio_get_raw_bit(frame->raw, bit_index);
+        locate_bit = sgpio_get_raw_bit(frame->raw, (uint16_t)(bit_index + 1U));
+        fail_bit = sgpio_get_raw_bit(frame->raw, (uint16_t)(bit_index + 2U));
+        if (slot == 8U)
+        {
+            printf("\r\n  bits S8..S15:");
+        }
+        printf(" S%u=%u%u%u",
+               (unsigned int)slot,
+               (unsigned int)act_bit,
+               (unsigned int)locate_bit,
+               (unsigned int)fail_bit);
+        printed = 1U;
+    }
+    if (printed == 0U)
+    {
+        printf(" -");
+    }
+    printf("\r\n");
+}
+
+/*
+ * SGPIO SDATAOUT raw bytes are logged LSB-first in capture order.
+ * For slot N:
+ *   bit (N * 3) + 0 = ACT
+ *   bit (N * 3) + 1 = LOCATE
+ *   bit (N * 3) + 2 = FAIL
+ *
+ * Example:
+ *   raw 38 8E C3 00
+ *   byte 0x38 is read as bits 0,0,0,1,1,1,0,0
+ *   triples are printed as:
+ *   bits S0..S7: S0=000 S1=111 S2=000 S3=111 S4=000 S5=111 S6=000 S7=011
+ *   bits S8..S15: S8=...
+ * In each triple, the digit order is ACT, LOCATE, FAIL.
+ */
+static void sgpio_print_frame(const SGPIO_FRAME_T *frame)
+{
+    printf("[SGPIO RX] frame #%lu\r\n",
+           (unsigned long)frame->frame_count);
+    printf("  capture: bits=%u bytes=%u valid=%u overflow=%u dropped=%lu low_sync=%u\r\n",
+           (unsigned int)frame->bit_count,
+           (unsigned int)frame->raw_len,
+           (unsigned int)frame->valid,
+           (unsigned int)frame->overflow,
+           (unsigned long)frame->dropped_frames,
+           (unsigned int)frame->low_sync_count);
+    printf("  sload: L0..L3=0x%X valid=%u\r\n",
+           (unsigned int)frame->sload_raw,
+           (unsigned int)frame->sload_raw_valid);
+    printf("  masks: ACT=0x%04X LOCATE=0x%04X FAIL=0x%04X\r\n",
+           (unsigned int)frame->act_mask,
+           (unsigned int)frame->locate_mask,
+           (unsigned int)frame->fail_mask);
+    sgpio_print_raw_bytes(frame);
+    sgpio_print_slot_bits(frame);
+    sgpio_print_slot_decode(frame);
+    printf("\r\n");
+}
+
+static void sgpio_led_clear_modes(void)
+{
+    uint8_t group;
+
+    for (group = 0U; group < SGPIO_LED_GROUP_COUNT; group++)
+    {
+        g_sgpio_activity_mode[group] = SGPIO_LED_MODE_OFF;
+        g_sgpio_status_mode[group] = SGPIO_LED_MODE_OFF;
+    }
+}
+
+static void sgpio_led_set_activity(uint8_t group, uint8_t enabled)
+{
+    uint8_t level;
+
+    level = (enabled != 0U) ? SGPIO_LED_ACTIVITY_ON_LEVEL : SGPIO_LED_ACTIVITY_OFF_LEVEL;
+
+    switch (group)
+    {
+        case 0U:
+            LED0_4_ACT_N = level;
+            break;
+
+        case 1U:
+            LED1_5_ACT_N = level;
+            break;
+
+        case 2U:
+            LED2_6_ACT_N = level;
+            break;
+
+        case 3U:
+            LED3_7_ACT_N = level;
+            break;
+
+        default:
+            break;
+    }
+}
+
+static void sgpio_led_set_status(uint8_t group, uint8_t enabled)
+{
+    uint8_t level;
+
+    level = (enabled != 0U) ? SGPIO_LED_STATUS_ON_LEVEL : SGPIO_LED_STATUS_OFF_LEVEL;
+
+    switch (group)
+    {
+        case 0U:
+            LED0_4_STA_N = level;
+            break;
+
+        case 1U:
+            LED1_5_STA_N = level;
+            break;
+
+        case 2U:
+            LED2_6_STA_N = level;
+            break;
+
+        case 3U:
+            LED3_7_STA_N = level;
+            break;
+
+        default:
+            break;
+    }
+}
+
+static void sgpio_led_preset_off_levels(void)
+{
+    LED0_4_ACT_N = SGPIO_LED_ACTIVITY_OFF_LEVEL;
+    LED1_5_ACT_N = SGPIO_LED_ACTIVITY_OFF_LEVEL;
+    LED2_6_ACT_N = SGPIO_LED_ACTIVITY_OFF_LEVEL;
+    LED3_7_ACT_N = SGPIO_LED_ACTIVITY_OFF_LEVEL;
+
+    LED0_4_STA_N = SGPIO_LED_STATUS_OFF_LEVEL;
+    LED1_5_STA_N = SGPIO_LED_STATUS_OFF_LEVEL;
+    LED2_6_STA_N = SGPIO_LED_STATUS_OFF_LEVEL;
+    LED3_7_STA_N = SGPIO_LED_STATUS_OFF_LEVEL;
+}
+
+static uint8_t sgpio_led_mode_is_on(uint8_t mode, uint32_t now)
+{
+    uint8_t enabled;
+
+    enabled = 0U;
+
+    switch (mode)
+    {
+        case SGPIO_LED_MODE_ON:
+            enabled = 1U;
+            break;
+
+        case SGPIO_LED_MODE_BLINK_1HZ:
+            enabled = (uint8_t)((((now / SGPIO_LED_1HZ_HALF_PERIOD_MS) & 1UL) == 0UL) ? 1U : 0U);
+            break;
+
+        case SGPIO_LED_MODE_BLINK_4HZ:
+            enabled = (uint8_t)((((now / SGPIO_LED_4HZ_HALF_PERIOD_MS) & 1UL) == 0UL) ? 1U : 0U);
+            break;
+
+        default:
+            break;
+    }
+
+    return enabled;
+}
+
+static void sgpio_led_apply_outputs(uint32_t now)
+{
+    uint8_t group;
+    uint8_t activity_on;
+    uint8_t status_on;
+
+    for (group = 0U; group < SGPIO_LED_GROUP_COUNT; group++)
+    {
+        activity_on = sgpio_led_mode_is_on(g_sgpio_activity_mode[group], now);
+        status_on = sgpio_led_mode_is_on(g_sgpio_status_mode[group], now);
+        sgpio_led_set_activity(group, activity_on);
+        sgpio_led_set_status(group, status_on);
+    }
+}
+
+static void sgpio_led_process(void)
+{
+    uint32_t now;
+
+    now = get_tick();
+    if (g_sgpio_led_last_apply_tick == now)
+    {
+        return;
+    }
+
+    g_sgpio_led_last_apply_tick = now;
+    sgpio_led_apply_outputs(now);
+}
+
+static void sgpio_led_update_group(uint8_t group, uint8_t activity_mode, uint8_t status_mode)
+{
+    if (group >= SGPIO_LED_GROUP_COUNT)
+    {
+        return;
+    }
+
+    if (activity_mode > g_sgpio_activity_mode[group])
+    {
+        g_sgpio_activity_mode[group] = activity_mode;
+    }
+    if (status_mode > g_sgpio_status_mode[group])
+    {
+        g_sgpio_status_mode[group] = status_mode;
+    }
+}
+
+static uint8_t sgpio_led_slot_to_group(uint8_t slot, uint8_t *group)
+{
+    uint8_t accepted;
+
+    accepted = 0U;
+
+#if (SPLIT_ODn_GROUP_A_B != 0U)
+    #if (SPLIT_ODn_GROUP_BOARD == SPLIT_ODn_GROUP_PCB_A)
+    if (slot < SGPIO_LED_GROUP_COUNT)
+    {
+        *group = slot;
+        accepted = 1U;
+    }
+    #elif (SPLIT_ODn_GROUP_BOARD == SPLIT_ODn_GROUP_PCB_B)
+    if ((slot >= SGPIO_LED_GROUP_COUNT) && (slot < SGPIO_LED_OD_COUNT))
+    {
+        *group = (uint8_t)(slot - SGPIO_LED_GROUP_COUNT);
+        accepted = 1U;
+    }
+    #else
+    #error "Invalid SPLIT_ODn_GROUP_BOARD setting"
+    #endif
+#else
+    if (slot < SGPIO_LED_OD_COUNT)
+    {
+        *group = (uint8_t)(slot & 0x03U);
+        accepted = 1U;
+    }
+#endif
+
+    return accepted;
+}
+
+static void sgpio_app_slot(uint8_t slot, uint8_t act, uint8_t locate, uint8_t fail)
+{
+    uint8_t group;
+    uint8_t activity_mode;
+    uint8_t status_mode;
+
+    if (sgpio_led_slot_to_group(slot, &group) == 0U)
+    {
+        return;
+    }
+
+    activity_mode = SGPIO_LED_MODE_OFF;
+    status_mode = SGPIO_LED_MODE_OFF;
+
+    if ((locate != 0U) && (fail == 0U))
+    {
+        activity_mode = SGPIO_LED_MODE_BLINK_4HZ;
+        status_mode = SGPIO_LED_MODE_BLINK_4HZ;
+    }
+    else if ((locate == 0U) && (fail != 0U))
+    {
+        status_mode = SGPIO_LED_MODE_ON;
+    }
+    else if ((locate != 0U) && (fail != 0U))
+    {
+        status_mode = SGPIO_LED_MODE_BLINK_1HZ;
+    }
+    else if (act != 0U)
+    {
+        activity_mode = SGPIO_LED_MODE_BLINK_4HZ;
+    }
+    else
+    {
+        activity_mode = SGPIO_LED_MODE_ON;
+    }
+
+    sgpio_led_update_group(group, activity_mode, status_mode);
+}
+
+static void sgpio_app_frame(const SGPIO_FRAME_T *frame)
+{
+    uint8_t slot;
+    uint8_t act;
+    uint8_t locate;
+    uint8_t fail;
+    uint16_t bit_index;
+    uint16_t slot_mask;
+    uint32_t led_tick;
+
+    if ((frame->valid == 0U) || (frame->overflow != 0U))
+    {
+        return;
+    }
+
+    sgpio_led_clear_modes();
+
+    for (slot = 0U; slot < SGPIO_LED_OD_COUNT; slot++)
+    {
+        bit_index = (uint16_t)(slot * SGPIO_DATA_BITS_PER_SLOT);
+        if ((uint16_t)(bit_index + 2U) >= frame->bit_count)
+        {
+            break;
+        }
+
+        slot_mask = (uint16_t)(1UL << slot);
+        act = (uint8_t)(((frame->act_mask & slot_mask) != 0U) ? 1U : 0U);
+        locate = (uint8_t)(((frame->locate_mask & slot_mask) != 0U) ? 1U : 0U);
+        fail = (uint8_t)(((frame->fail_mask & slot_mask) != 0U) ? 1U : 0U);
+
+        sgpio_app_slot(slot, act, locate, fail);
+    }
+
+    led_tick = get_tick();
+    g_sgpio_led_last_apply_tick = led_tick;
+    sgpio_led_apply_outputs(led_tick);
+}
+
+static uint8_t sgpio_frame_same(const SGPIO_FRAME_T *a, const SGPIO_FRAME_T *b)
+{
+    uint8_t i;
+    uint8_t same;
+
+    same = 1U;
+
+    if ((a->valid != b->valid) ||
+        (a->overflow != b->overflow) ||
+        (a->bit_count != b->bit_count) ||
+        (a->raw_len != b->raw_len) ||
+        (a->sload_raw != b->sload_raw) ||
+        (a->sload_raw_valid != b->sload_raw_valid) ||
+        (a->low_sync_count != b->low_sync_count) ||
+        (a->act_mask != b->act_mask) ||
+        (a->locate_mask != b->locate_mask) ||
+        (a->fail_mask != b->fail_mask))
+    {
+        same = 0U;
+    }
+
+    if (same != 0U)
+    {
+        for (i = 0U; i < SGPIO_SLAVE_RX_MAX_BYTES; i++)
+        {
+            if (a->raw[i] != b->raw[i])
+            {
+                same = 0U;
+                break;
+            }
+        }
+    }
+
+    return same;
+}
+
+static void sgpio_set_filter_candidate(const SGPIO_FRAME_T *frame)
+{
+    memcpy(&g_sgpio_filter_candidate, frame, sizeof(g_sgpio_filter_candidate));
+    g_sgpio_filter_candidate_valid = 1U;
+    g_sgpio_filter_repeat_count = 1U;
+}
+
+static void sgpio_print_unstable_frame(const SGPIO_FRAME_T *frame, unsigned long now)
+{
+    if ((unsigned long)(now - g_sgpio_last_unstable_log_tick) < SGPIO_UNSTABLE_LOG_MIN_INTERVAL_MS)
+    {
+        return;
+    }
+
+    printf("[SGPIO RX] unstable frame ignored\r\n");
+    printf("  capture: bits=%u bytes=%u valid=%u overflow=%u low_sync=%u\r\n",
+           (unsigned int)frame->bit_count,
+           (unsigned int)frame->raw_len,
+           (unsigned int)frame->valid,
+           (unsigned int)frame->overflow,
+           (unsigned int)frame->low_sync_count);
+    printf("  raw0=0x%02X candidate_repeat=%u\r\n\r\n",
+           (unsigned int)frame->raw[0],
+           (unsigned int)g_sgpio_filter_repeat_count);
+    g_sgpio_last_unstable_log_tick = now;
+}
+
+static uint8_t sgpio_accept_stable_frame(const SGPIO_FRAME_T *frame, unsigned long now)
+{
+    uint8_t accepted;
+
+    accepted = 0U;
+
+    if ((frame->valid == 0U) || (frame->overflow != 0U))
+    {
+        sgpio_set_filter_candidate(frame);
+        sgpio_print_unstable_frame(frame, now);
+        return 0U;
+    }
+
+    if ((g_sgpio_last_frame.valid != 0U) && (sgpio_frame_same(frame, &g_sgpio_last_frame) != 0U))
+    {
+        accepted = 1U;
+    }
+    else if ((g_sgpio_filter_candidate_valid != 0U) &&
+             (sgpio_frame_same(frame, &g_sgpio_filter_candidate) != 0U))
+    {
+        if (g_sgpio_filter_repeat_count < 0xFFU)
+        {
+            g_sgpio_filter_repeat_count++;
+        }
+        if (g_sgpio_filter_repeat_count >= SGPIO_FRAME_STABLE_REQUIRED)
+        {
+            accepted = 1U;
+        }
+    }
+    else
+    {
+        sgpio_set_filter_candidate(frame);
+    }
+
+    if (accepted == 0U)
+    {
+        return 0U;
+    }
+
+    g_sgpio_filter_candidate_valid = 0U;
+    g_sgpio_filter_repeat_count = 0U;
+    return 1U;
+}
+
+void SGPIO_OnClockRisingSampledIrq(uint8_t sload_value, uint8_t sdata_value)
+{
+    unsigned long now;
+
+    now = get_systick();
+
+    if ((g_sgpio_capture_active != 0U) &&
+        (g_sgpio_marker_seen != 0U) &&
+        ((unsigned long)(now - g_sgpio_last_clock_tick) >= SGPIO_FRAME_GAP_TIMEOUT_MS))
+    {
+        sgpio_finalize_capture();
+    }
+
+    g_sgpio_last_clock_tick = now;
+
+    if (g_sgpio_marker_seen == 0U)
+    {
+        if (sload_value == 0U)
+        {
+            if (g_sgpio_capture_active == 0U)
+            {
+                if (g_sgpio_frame_ready != 0U)
+                {
+                    g_sgpio_dropped_frames++;
+                    g_sgpio_frame_ready = 0U;
+                }
+
+                sgpio_reset_capture_state();
+                g_sgpio_capture_active = 1U;
+                g_sgpio_capture_start_tick = now;
+                g_sgpio_last_clock_tick = now;
+            }
+
+            if (g_sgpio_low_sync_count < 0xFFU)
+            {
+                g_sgpio_low_sync_count++;
+            }
+        }
+        else if (g_sgpio_capture_active == 0U)
+        {
+            return;
+        }
+        else if (g_sgpio_low_sync_count >= SGPIO_LOW_SYNC_MIN_BITS)
+        {
+            g_sgpio_marker_seen = 1U;
+            g_sgpio_low_sync_at_marker = g_sgpio_low_sync_count;
+        }
+        else
+        {
+            sgpio_reset_capture_state();
+        }
+        return;
+    }
+
+    if (g_sgpio_slot_bit_count < SGPIO_SLOAD_RAW_BITS)
+    {
+        if (sload_value != 0U)
+        {
+            g_sgpio_sload_raw = (uint8_t)(g_sgpio_sload_raw | (uint8_t)(1U << g_sgpio_slot_bit_count));
+        }
+        if (g_sgpio_slot_bit_count == (uint16_t)(SGPIO_SLOAD_RAW_BITS - 1U))
+        {
+            g_sgpio_sload_raw_valid = 1U;
+        }
+    }
+
+    sgpio_store_sdata_bit(sdata_value);
+}
+
+void SGPIO_Process(void)
+{
+    SGPIO_FRAME_T local_frame;
+    unsigned long now;
+
+    sgpio_led_process();
+
+    now = get_systick();
+
+    if (g_sgpio_capture_active != 0U)
+    {
+        if (((g_sgpio_marker_seen != 0U) && ((unsigned long)(now - g_sgpio_last_clock_tick) >= SGPIO_FRAME_GAP_TIMEOUT_MS)) ||
+            ((unsigned long)(now - g_sgpio_capture_start_tick) >= SGPIO_FRAME_ARM_TIMEOUT_MS))
+        {
+            NVIC_DisableIRQ(SGPIO_SLAVE_GPIO_IRQn);
+            sgpio_finalize_capture();
+            NVIC_EnableIRQ(SGPIO_SLAVE_GPIO_IRQn);
+        }
+    }
+
+    if (g_sgpio_frame_ready == 0U)
+    {
+        return;
+    }
+
+    NVIC_DisableIRQ(SGPIO_SLAVE_GPIO_IRQn);
+    sgpio_copy_frame_from_isr(&local_frame);
+    sgpio_reset_capture_state();
+    NVIC_EnableIRQ(SGPIO_SLAVE_GPIO_IRQn);
+
+    sgpio_decode_frame(&local_frame);
+    if (sgpio_accept_stable_frame(&local_frame, now) == 0U)
+    {
+        return;
+    }
+    memcpy(&g_sgpio_last_frame, &local_frame, sizeof(g_sgpio_last_frame));
+
+    /*
+     * Run product behavior for every stable accepted frame. Keep this outside
+     * the debug log rate limit so SGPIO host commands are not delayed by
+     * printf throttling.
+     */
+    sgpio_app_frame(&local_frame);
+
+    if ((local_frame.frame_count <= SGPIO_FRAME_LOG_FIRST_N) ||
+        ((unsigned long)(now - g_sgpio_last_log_tick) >= SGPIO_FRAME_LOG_MIN_INTERVAL_MS))
+    {
+        sgpio_print_frame(&local_frame);
+        g_sgpio_last_log_tick = now;
+    }
+}
+
+void SGPIO_Init(void)
+{
+    SYS_UnlockReg();
+
+    /*
+     * Keep SGPIO pins in GPIO function mode. The receiver uses the shared
+     * GPIO port ISR; SLOAD and SDATA OUT are sampled synchronously by SCLK.
+     */
+    SYS->GPA_MFPL &= ~(SYS_GPA_MFPL_PA0MFP_Msk |
+                       SYS_GPA_MFPL_PA2MFP_Msk |
+                       SYS_GPA_MFPL_PA3MFP_Msk);
+    SYS->GPC_MFPL = (SYS->GPC_MFPL & ~(SYS_GPC_MFPL_PC2MFP_Msk |
+                                       SYS_GPC_MFPL_PC3MFP_Msk |
+                                       SYS_GPC_MFPL_PC4MFP_Msk |
+                                       SYS_GPC_MFPL_PC5MFP_Msk |
+                                       SYS_GPC_MFPL_PC7MFP_Msk)) |
+                    (SYS_GPC_MFPL_PC2MFP_GPIO |
+                     SYS_GPC_MFPL_PC3MFP_GPIO |
+                     SYS_GPC_MFPL_PC4MFP_GPIO |
+                     SYS_GPC_MFPL_PC5MFP_GPIO |
+                     SYS_GPC_MFPL_PC7MFP_GPIO);
+    SYS->GPF_MFPL = (SYS->GPF_MFPL & ~(SYS_GPF_MFPL_PF2MFP_Msk |
+                                       SYS_GPF_MFPL_PF3MFP_Msk |
+                                       SYS_GPF_MFPL_PF4MFP_Msk)) |
+                    (SYS_GPF_MFPL_PF2MFP_GPIO |
+                     SYS_GPF_MFPL_PF3MFP_GPIO |
+                     SYS_GPF_MFPL_PF4MFP_GPIO);
+
+    SYS_LockReg();
+
+    GPIO_SetMode(SGPIO_SLAVE_SLOAD_PORT, SGPIO_SLAVE_SLOAD_PIN_MASK, GPIO_MODE_INPUT);
+    GPIO_SetMode(SGPIO_SLAVE_SDOUT_PORT, SGPIO_SLAVE_SDOUT_PIN_MASK, GPIO_MODE_INPUT);
+    GPIO_SetMode(SGPIO_SLAVE_SCLK_PORT, SGPIO_SLAVE_SCLK_PIN_MASK, GPIO_MODE_INPUT);
+    sgpio_led_preset_off_levels();
+    GPIO_SetMode(LED0_4_ACT_N_PORT, LED0_4_ACT_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED1_5_ACT_N_PORT, LED1_5_ACT_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED2_6_ACT_N_PORT, LED2_6_ACT_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED3_7_ACT_N_PORT, LED3_7_ACT_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED0_4_STA_N_PORT, LED0_4_STA_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED1_5_STA_N_PORT, LED1_5_STA_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED2_6_STA_N_PORT, LED2_6_STA_N_PIN_MASK, GPIO_MODE_OUTPUT);
+    GPIO_SetMode(LED3_7_STA_N_PORT, LED3_7_STA_N_PIN_MASK, GPIO_MODE_OUTPUT);
+
+    sgpio_reset_capture_state();
+    sgpio_led_clear_modes();
+    g_sgpio_led_last_apply_tick = 0xFFFFFFFFUL;
+    sgpio_led_process();
+    memset(&g_sgpio_last_frame, 0, sizeof(g_sgpio_last_frame));
+    memset(&g_sgpio_filter_candidate, 0, sizeof(g_sgpio_filter_candidate));
+    g_sgpio_filter_candidate_valid = 0U;
+    g_sgpio_filter_repeat_count = 0U;
+    g_sgpio_last_unstable_log_tick = 0UL;
+
+    GPIO_CLR_INT_FLAG(SGPIO_SLAVE_SLOAD_PORT, SGPIO_SLAVE_SLOAD_PIN_MASK);
+    GPIO_CLR_INT_FLAG(SGPIO_SLAVE_SDOUT_PORT, SGPIO_SLAVE_SDOUT_PIN_MASK);
+    GPIO_CLR_INT_FLAG(SGPIO_SLAVE_SCLK_PORT, SGPIO_SLAVE_SCLK_PIN_MASK);
+
+    GPIO_DisableInt(SGPIO_SLAVE_SLOAD_PORT, SGPIO_SLAVE_SLOAD_PIN_NUM);
+    GPIO_DisableInt(SGPIO_SLAVE_SDOUT_PORT, SGPIO_SLAVE_SDOUT_PIN_NUM);
+    GPIO_EnableInt(SGPIO_SLAVE_SCLK_PORT, SGPIO_SLAVE_SCLK_PIN_NUM, GPIO_INT_RISING);
+
+    NVIC_ClearPendingIRQ(SGPIO_SLAVE_GPIO_IRQn);
+    NVIC_EnableIRQ(SGPIO_SLAVE_GPIO_IRQn);
+
+    printf("%s/SLOAD GPIO input sampled by SCLK\r\n", SGPIO_SLAVE_SLOAD_PIN_NAME);
+    printf("%s/SDATAOUT GPIO input sampled by SCLK\r\n", SGPIO_SLAVE_SDOUT_PIN_NAME);
+    printf("%s/SCLK shared GPIO ISR rising sampler\r\n", SGPIO_SLAVE_SCLK_PIN_NAME);
+    printf("SGPIO GPIO ISR RX path, no SDATAIN TX\r\n");
+}
+
+void SGPIO_SLAVE_GPIO_IRQHandler(void)
+{
+    uint32_t sclk_pending;
+    uint8_t sload_sample;
+    uint8_t sdata_sample;
+
+    /*
+     * Shared GPIO port ISR rule:
+     * the selected SCLK bit check must remain the first top-level branch in
+     * this common GPIO handler. SGPIO depends on every SCLK rising edge, so
+     * future unrelated GPIO handling must be added below this block and must
+     * not delay the SCLK sampling path.
+     */
+    sclk_pending = GPIO_GET_INT_FLAG(SGPIO_SLAVE_SCLK_PORT, SGPIO_SLAVE_SCLK_PIN_MASK);
+    if (sclk_pending != 0UL)
+    {
+        sload_sample = SGPIO_SLAVE_SLOAD_IO;
+        sdata_sample = SGPIO_SLAVE_SDOUT_IO;
+        GPIO_CLR_INT_FLAG(SGPIO_SLAVE_SCLK_PORT, SGPIO_SLAVE_SCLK_PIN_MASK);
+        SGPIO_OnClockRisingSampledIrq(sload_sample, sdata_sample);
+    }
+}
