@@ -160,7 +160,7 @@ void Task_1000ms_Callback(void *user_data)
 	// static uint32_t LOG1 = 0;
 
     // printf("%s(timer) : %4d\r\n",__FUNCTION__,LOG1++);
-    PB14 ^= 1;
+    // PB14 ^= 1;
 }
 
 void Task_100ms_Callback(void *user_data)
@@ -459,13 +459,13 @@ void UART0_Init(void)
 void GPIO_Init (void)
 {
     SYS_UnlockReg();
-    SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB14MFP_Msk)) | (SYS_GPB_MFPH_PB14MFP_GPIO);
-    SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB15MFP_Msk)) | (SYS_GPB_MFPH_PB15MFP_GPIO);
+    // SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB14MFP_Msk)) | (SYS_GPB_MFPH_PB14MFP_GPIO);
+    // SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB15MFP_Msk)) | (SYS_GPB_MFPH_PB15MFP_GPIO);
     SYS->GPF_MFPH = (SYS->GPF_MFPH & ~(SYS_GPF_MFPH_PF14MFP_Msk));
     SYS_LockReg();
 
-    GPIO_SetMode(PB, BIT14, GPIO_MODE_OUTPUT);
-    GPIO_SetMode(PB, BIT15, GPIO_MODE_OUTPUT);	
+    // GPIO_SetMode(PB, BIT14, GPIO_MODE_OUTPUT);
+    // GPIO_SetMode(PB, BIT15, GPIO_MODE_OUTPUT);	
     GPIO_SetMode(PF, BIT14, GPIO_MODE_INPUT);
 
 }

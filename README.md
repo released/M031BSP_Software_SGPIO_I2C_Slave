@@ -23,8 +23,7 @@ Update: `2026/06/24`
   - `UART0`
   - `PB12 = UART0_RXD`, `PB13 = UART0_TXD`
   - Terminal setting: `115200 8N1`
-- Heartbeat LED:
-  - `PB14`
+- Debug heartbeat output:
   - Toggles from the timer service; if it stops, profile handling is blocking the main loop or IRQ path.
 - Main peripheral(s):
   - SGPIO target/slave receive path implemented by a shared GPIO port ISR.
@@ -41,7 +40,6 @@ Update: `2026/06/24`
 | --- | --- | --- | --- |
 | `UART0_RXD` | `PB12` | Input | Debug UART RX |
 | `UART0_TXD` | `PB13` | Output | Debug UART TX |
-| `HEARTBEAT_LED` | `PB14` | Output | Toggles while main loop is alive |
 | `BP_TYPE` | `PF14` | Input | `0=SGPIO`, `1=2 Wire SMBus slave`; sampled once at boot |
 | `SGPIO_SLOAD` | `PA3` | Input | SGPIO profile only; sampled by `SCLK` |
 | `SGPIO_SDATAOUT` | `PA0` | Input | Sampled by `SCLK`; data IRQ is disabled |
@@ -168,13 +166,13 @@ The main loop must remain lightweight:
 flowchart TD
     A["main() entry"] --> B["SYS / GPIO / UART0 / TIMER1 / SysTick init"]
     B --> C["TimerService_Init() and TimerService_CreateTask()"]
-    C --> D["Read BP_TYPE(PF14) once at boot"]
+    C --> D["Read BP_TYPE once at boot"]
     D --> E{"Boot profile"}
-    E -->|0: SGPIO| F["SGPIO_Init(): PA2/PA3/PA0 GPIO receiver"]
-    E -->|1: SMBus| G["SMBusSlave_I2C1_Init(): PA2/PA3 I2C1 slave"]
-    F --> H["SMBusSlave_I2C0_Init(): PC0/PC1"]
+    E -->|0: SGPIO| F["SGPIO_Init(): SGPIO receiver"]
+    E -->|1: SMBus| G["SMBusSlave_I2C1_Init(): I2C1 slave"]
+    F --> H["SMBusSlave_I2C0_Init(): I2C0 slave"]
     G --> H
-    H --> I["SMBusSlave_USCI0_Init(): PD0/PD1"]
+    H --> I["SMBusSlave_USCI0_Init(): USCI0 slave"]
     I --> J["while(1): loop()"]
     J --> K["loop() foreground processing"]
 ```
@@ -188,10 +186,10 @@ flowchart TD
     B -->|Yes| C["Clear TIMER1 interrupt flag"]
     C --> D["tick_counter(): update 1 ms counter"]
     D --> E["TimerService_Tick1ms(): age software timers"]
-    E --> F["SMBusSlave_I2C0_Timer1ms(): sample PC1/SCL low time"]
-    F --> G["SMBusSlave_USCI0_Timer1ms(): sample PD0/CLK low time"]
+    E --> F["SMBusSlave_I2C0_Timer1ms(): sample I2C0 SCL low time"]
+    F --> G["SMBusSlave_USCI0_Timer1ms(): sample USCI0 clock low time"]
     G --> H{"BP_TYPE == SMBus profile?"}
-    H -->|Yes| I["SMBusSlave_I2C1_Timer1ms(): sample PA3/SCL low time"]
+    H -->|Yes| I["SMBusSlave_I2C1_Timer1ms(): sample I2C1 SCL low time"]
     H -->|No| J["Skip I2C1 timeout sampling"]
     I --> K["Latch timeout event for foreground recovery/log"]
     J --> K
@@ -326,11 +324,11 @@ The current receiver uses `SCLK` as the only active SGPIO receive interrupt.
 
 ```mermaid
 flowchart TD
-    A["Idle: GPIO : SLOAD high"] --> B["Initiator drives GPIO : SLOAD low"]
-    B --> C["GPIO : SCLOCK rising edge"]
+    A["Idle: SLOAD high"] --> B["Initiator drives SLOAD low"]
+    B --> C["SCLOCK rising edge"]
     C --> D["Shared GPIO ISR runs immediately"]
-    D --> E["Sample GPIO : SLOAD and GPIO : SDATA OUT"]
-    E --> F{"GPIO : SLOAD == 0?"}
+    D --> E["Sample SLOAD and SDATA OUT"]
+    E --> F{"SLOAD == 0?"}
     F -->|Yes| G["Count low-sync clocks"]
     G --> C
     F -->|No| H{"Low-sync count >= minimum?"}
@@ -338,9 +336,9 @@ flowchart TD
     I --> C
     H -->|Yes| J["Restart marker detected"]
     J --> K["Skip marker bit; arm frame capture"]
-    K --> L["Capture GPIO : SLOAD L0..L3 on next 4 GPIO : SCLOCK edges"]
-    L --> M["Capture GPIO : SDATA OUT slot triplets: ACT, LOCATE, FAIL"]
-    M --> N{"No GPIO : SCLOCK before frame-gap timeout?"}
+    K --> L["Capture SLOAD L0..L3 on next 4 SCLOCK edges"]
+    L --> M["Capture SDATA OUT slot triplets: ACT, LOCATE, FAIL"]
+    M --> N{"No SCLOCK before frame-gap timeout?"}
     N -->|No| C
     N -->|Yes| O["SGPIO_Process finalizes frame"]
     O --> P["Copy ISR result and decode masks"]
@@ -622,7 +620,7 @@ Important internal timing/filter macros:
 2. Open a UART terminal on M032 `UART0`, `115200 8N1`.
 3. Power on or reset M032.
 4. Confirm the SGPIO startup log appears.
-5. Confirm `PB14` heartbeat LED continues toggling.
+5. Confirm the debug heartbeat output continues toggling.
 6. Drive a valid SGPIO frame from the initiator.
 7. Confirm the M032 UART log decodes the expected masks and slot list.
 8. If frames are unstable, lower initiator `SCLK`, shorten wiring, and confirm the waveform with a logic analyzer.
@@ -654,7 +652,7 @@ Scope / logic analyzer:
 
 ## Troubleshooting
 
-- If `PB14` heartbeat stops:
+- If the debug heartbeat output stops:
   - Check for excessive `printf()` output.
   - Keep SGPIO and SMBus debug logs rate-limited.
   - Confirm no busy-wait or FIFO-drain loop was reintroduced into `SGPIO_Process()` or any `SMBusSlave_*_Process()`.
