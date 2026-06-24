@@ -221,6 +221,7 @@ The SMBus protocol core is shared by three independent slave instances. I2C0 and
   - `0x7A` is avoided because it is in the I2C reserved `0x78-0x7F` range and its address byte collides with the 10-bit prefix pattern.
 - PEC: software CRC-8 polynomial `0x07`; repeated-start reads append PEC.
 - __Timeout__: TMR1 samples each SMBus SCL/CLK pin once per millisecond through the `SMBUS_SLAVE_*` pin defines and raises a software clock-low timeout after `SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS`. `SMBusSlave_*_Process()` only handles the pending recovery/log events. USCI0 `TOCNT` is disabled by default because it is an interrupt-service timeout, not an SMBus clock-low timer.
+- __Enabled SMBus clock pins must idle high with pull-up__. If any enabled SCL/CLK pin is left floating or held low, the software clock-low monitor will repeatedly report timeout and trigger slave recovery. I2C0 and USCI0 are initialized on every boot, so their clock pins also need a valid idle-high level even when only I2C1 is under test.
 - Representative commands:
   - `PMBUS_REVISION` (`0x98`) as Read Byte with PEC.
   - `MFR_ID` (`0x99`) and `MFR_MODEL` (`0x9A`) as Block Read with PEC.
@@ -662,7 +663,9 @@ Scope / logic analyzer:
   - Confirm the reset source on the next boot. `HardFault_Handler()` loops after printing the fault dump and does not intentionally reset the MCU.
 - If SMBus logs show timeout:
   - Check whether that port's SCL pin is being held low: `PA3/I2C1_SCL`, `PC1/I2C0_SCL`, or `PD0/USCI0_CLK`.
-  - Confirm pull-up and common GND are present.
+  - __Confirm every enabled SMBus SCL/CLK pin has pull-up and idles high.__
+  - Confirm common GND is present.
+  - I2C0 and USCI0 are initialized on every boot; leaving their clock pins floating or low will cause repeated timeout/recovery logs even if the active host test targets only I2C1.
   - Confirm only the SMBus profile owns PA2/PA3 when `BP_TYPE=1`.
   - Keep the software SCL-low monitor in `TMR1_IRQHandler()`; do not move it back into `SMBusSlave_*_Process()`.
   - Keep `SMBUS_SLAVE_USCI0_TIMEOUT_INTERRUPT_ENABLE` at `0U` when I2C0/I2C1/USCI0 are externally tied to the same SMBus lines.
