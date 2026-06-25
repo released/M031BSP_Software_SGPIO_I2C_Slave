@@ -123,10 +123,10 @@ PA2/SCLK shared GPIO ISR rising sampler
 SGPIO GPIO ISR RX path, no SDATAIN TX
 PC0/I2C0_SDA SMBus slave open-drain
 PC1/I2C0_SCL SMBus slave open-drain
-I2C0 SMBus slave addr7=0x6A, PEC enabled in software
+I2C0 SMBus slave addr7=0x6A, PEC optional in software
 PD0/USCI0_CLK SMBus slave open-drain
 PD1/USCI0_DAT0 SMBus slave open-drain
-USCI0 SMBus slave addr7=0x4A, PEC enabled in software
+USCI0 SMBus slave addr7=0x4A, PEC optional in software
 SMBus commands: PMBUS_REVISION, MFR_ID, MFR_MODEL, CLEAR_FAULTS
 ```
 
@@ -136,13 +136,13 @@ Expected SMBus boot log includes `BP_TYPE=1`, I2C1 pin-role messages, the always
 BP_TYPE(PF14)=1 -> 2 Wire SMBus slave profile
 PA2/I2C1_SDA SMBus slave open-drain
 PA3/I2C1_SCL SMBus slave open-drain
-I2C1 SMBus slave addr7=0x5A, PEC enabled in software
+I2C1 SMBus slave addr7=0x5A, PEC optional in software
 PC0/I2C0_SDA SMBus slave open-drain
 PC1/I2C0_SCL SMBus slave open-drain
-I2C0 SMBus slave addr7=0x6A, PEC enabled in software
+I2C0 SMBus slave addr7=0x6A, PEC optional in software
 PD0/USCI0_CLK SMBus slave open-drain
 PD1/USCI0_DAT0 SMBus slave open-drain
-USCI0 SMBus slave addr7=0x4A, PEC enabled in software
+USCI0 SMBus slave addr7=0x4A, PEC optional in software
 SMBus commands: PMBUS_REVISION, MFR_ID, MFR_MODEL, CLEAR_FAULTS
 ```
 
@@ -219,14 +219,14 @@ The SMBus protocol core is shared by three independent slave instances. I2C0 and
   - I2C0: `0x6A` 7-bit, pins `PC0/I2C0_SDA`, `PC1/I2C0_SCL`.
   - USCI0/UI2C0: `0x4A` 7-bit, pins `PD0/USCI0_CLK`, `PD1/USCI0_DAT0`. 
   - `0x7A` is avoided because it is in the I2C reserved `0x78-0x7F` range and its address byte collides with the 10-bit prefix pattern.
-- PEC: software CRC-8 polynomial `0x07`; repeated-start reads append PEC.
+- PEC: software CRC-8 polynomial `0x07`; __`PMBUS_PEC_POLICY` defaults to `PMBUS_PEC_POLICY_OPTIONAL`__. Optional mode validates host PEC when present and appends read PEC. Disabled mode does not generate or accept PEC as an extra byte. Required mode requires valid host PEC for write-side transactions.
 - __Timeout__: TMR1 samples each SMBus SCL/CLK pin once per millisecond through the `SMBUS_SLAVE_*` pin defines and raises a software clock-low timeout after `SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS`. `SMBusSlave_*_Process()` only handles the pending recovery/log events. USCI0 `TOCNT` is disabled by default because it is an interrupt-service timeout, not an SMBus clock-low timer.
 - __Enabled SMBus clock pins must idle high with pull-up__. If any enabled SCL/CLK pin is left floating or held low, the software clock-low monitor will repeatedly report timeout and trigger slave recovery. I2C0 and USCI0 are initialized on every boot, so their clock pins also need a valid idle-high level even when only I2C1 is under test.
 - Representative commands:
   - `PMBUS_REVISION` (`0x98`) as Read Byte with PEC.
   - `MFR_ID` (`0x99`) and `MFR_MODEL` (`0x9A`) as Block Read with PEC.
   - `CLEAR_FAULTS` (`0x03`) as Send Byte with optional write-side PEC.
-- Read Word with PEC, Block Write with PEC, and Write Byte with PEC are exposed through the user extension APIs and command flags.
+- Read Word, Write Word, Block Write, and Write Byte are exposed through the user extension APIs and command flags; PEC behavior follows `PMBUS_PEC_POLICY`.
 - User extension API:
   - All hooks include `port_id`, using `SMBUS_SLAVE_PORT_I2C1`, `SMBUS_SLAVE_PORT_I2C0`, or `SMBUS_SLAVE_PORT_USCI0`.
   - `SMBusSlave_UserGetCommandFlags(port_id, command, flags)`
@@ -235,6 +235,7 @@ The SMBus protocol core is shared by three independent slave instances. I2C0 and
   - `SMBusSlave_UserBlockRead(port_id, command, data, length)`
   - `SMBusSlave_UserSendByte(port_id, command, pec_present, pec_valid)`
   - `SMBusSlave_UserWriteByte(port_id, command, value, pec_present, pec_valid)`
+  - `SMBusSlave_UserWriteWord(port_id, command, value, pec_present, pec_valid)`
   - `SMBusSlave_UserBlockWrite(port_id, command, data, length, pec_present, pec_valid)`
   - `SMBusSlave_UserTimeoutError(port_id)`
 
@@ -591,6 +592,11 @@ Important SMBus address and command macros:
 #define SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS     (35U)
 #define SMBUS_SLAVE_USCI0_TIMEOUT_INTERRUPT_ENABLE (0U)
 
+#define PMBUS_PEC_POLICY_DISABLED            (0U)
+#define PMBUS_PEC_POLICY_OPTIONAL            (1U)
+#define PMBUS_PEC_POLICY_REQUIRED            (2U)
+#define PMBUS_PEC_POLICY                     PMBUS_PEC_POLICY_OPTIONAL
+
 #define SMBUS_SLAVE_PORT_I2C1                (0U)
 #define SMBUS_SLAVE_PORT_I2C0                (1U)
 #define SMBUS_SLAVE_PORT_USCI0               (2U)
@@ -599,6 +605,9 @@ Important SMBus address and command macros:
 #define SMBUS_SLAVE_PMBUS_REVISION           (0x98U)
 #define SMBUS_SLAVE_PMBUS_MFR_ID             (0x99U)
 #define SMBUS_SLAVE_PMBUS_MFR_MODEL          (0x9AU)
+
+#define SMBUS_SLAVE_COMMAND_FLAG_READ_WORD   (0x02U)
+#define SMBUS_SLAVE_COMMAND_FLAG_WRITE_WORD  (0x40U)
 ```
 
 Important internal timing/filter macros:

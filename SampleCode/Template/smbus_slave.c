@@ -12,6 +12,7 @@ typedef enum
     SMBUS_PROTOCOL_READ,
     SMBUS_PROTOCOL_BLOCK_WRITE,
     SMBUS_PROTOCOL_WRITE_BYTE,
+    SMBUS_PROTOCOL_WRITE_WORD,
     SMBUS_PROTOCOL_SEND_BYTE
 } SMBUS_PROTOCOL_T;
 
@@ -34,6 +35,7 @@ typedef enum
 #define SMBUS_DEBUG_PROTOCOL_NONE            (0U)
 #define SMBUS_DEBUG_PROTOCOL_SEND_BYTE       (1U)
 #define SMBUS_DEBUG_PROTOCOL_WRITE_BYTE      (2U)
+#define SMBUS_DEBUG_PROTOCOL_WRITE_WORD      (3U)
 #define SMBUS_DEBUG_PROTOCOL_READ_BYTE       (4U)
 #define SMBUS_DEBUG_PROTOCOL_READ_WORD       (5U)
 #define SMBUS_DEBUG_PROTOCOL_BLOCK_WRITE     (7U)
@@ -111,6 +113,9 @@ static const char *smbus_debug_get_protocol_name(uint8_t protocol)
         case SMBUS_DEBUG_PROTOCOL_WRITE_BYTE:
             return "WRITE_BYTE";
 
+        case SMBUS_DEBUG_PROTOCOL_WRITE_WORD:
+            return "WRITE_WORD";
+
         case SMBUS_DEBUG_PROTOCOL_READ_BYTE:
             return "READ_BYTE";
 
@@ -162,6 +167,9 @@ static uint8_t smbus_debug_protocol_from_core(uint8_t protocol, uint8_t flags)
 
         case SMBUS_PROTOCOL_WRITE_BYTE:
             return SMBUS_DEBUG_PROTOCOL_WRITE_BYTE;
+
+        case SMBUS_PROTOCOL_WRITE_WORD:
+            return SMBUS_DEBUG_PROTOCOL_WRITE_WORD;
 
         case SMBUS_PROTOCOL_SEND_BYTE:
             return SMBUS_DEBUG_PROTOCOL_SEND_BYTE;
@@ -285,6 +293,7 @@ static void smbus_reset_tx(SMBUS_SLAVE_CONTEXT_T *ctx)
     ctx->tx_index = 0U;
 }
 
+#if PMBUS_ENABLE_PEC
 static uint8_t smbus_pec_update(uint8_t crc, uint8_t data_byte)
 {
     uint8_t bit_index;
@@ -346,6 +355,7 @@ static void smbus_append_read_pec(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command_le
     ctx->tx_buffer[ctx->tx_length] = crc;
     ctx->tx_length = (uint8_t)(ctx->tx_length + 1U);
 }
+#endif
 
 static uint8_t smbus_get_builtin_command_flags(uint8_t command)
 {
@@ -416,6 +426,12 @@ static uint8_t smbus_length_matches_protocol(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t
         return 1U;
     }
 
+    if ((length == 3U) && ((flags & SMBUS_SLAVE_COMMAND_FLAG_WRITE_WORD) != 0U))
+    {
+        *protocol = (uint8_t)SMBUS_PROTOCOL_WRITE_WORD;
+        return 1U;
+    }
+
     if ((length >= 2U) && ((flags & SMBUS_SLAVE_COMMAND_FLAG_BLOCK_WRITE) != 0U))
     {
         count = ctx->rx_buffer[1];
@@ -436,42 +452,71 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
                                              uint8_t *pec_present,
                                              uint8_t *pec_valid)
 {
+#if PMBUS_ENABLE_PEC
     uint8_t candidate_length;
     uint8_t protocol;
+    uint8_t protocol_no_pec;
     uint8_t computed_pec;
     uint8_t last_byte;
+#else
+    flags = flags;
+#endif
 
     *effective_length = ctx->rx_length;
     *pec_present = 0U;
     *pec_valid = 1U;
 
+#if PMBUS_ENABLE_PEC
     if (ctx->rx_length <= 1U)
     {
+#if (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED)
+        if (smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol) != 0U)
+        {
+            if (protocol != (uint8_t)SMBUS_PROTOCOL_READ)
+            {
+                *pec_valid = 0U;
+                return 0U;
+            }
+        }
+#endif
         return 1U;
     }
 
     candidate_length = (uint8_t)(ctx->rx_length - 1U);
-    if (smbus_length_matches_protocol(ctx, flags, candidate_length, &protocol) == 0U)
+    if (smbus_length_matches_protocol(ctx, flags, candidate_length, &protocol) != 0U)
     {
-        return 1U;
+        computed_pec = smbus_compute_write_pec(ctx, candidate_length);
+        last_byte = ctx->rx_buffer[ctx->rx_length - 1U];
+        if (last_byte == computed_pec)
+        {
+            *effective_length = candidate_length;
+            *pec_present = 1U;
+            return 1U;
+        }
+
+        protocol_no_pec = (uint8_t)SMBUS_PROTOCOL_NONE;
+        if ((smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol_no_pec) == 0U) ||
+            ((PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED) &&
+             (protocol_no_pec != (uint8_t)SMBUS_PROTOCOL_READ)))
+        {
+            *effective_length = candidate_length;
+            *pec_present = 1U;
+            *pec_valid = 0U;
+            return 0U;
+        }
     }
 
-    computed_pec = smbus_compute_write_pec(ctx, candidate_length);
-    last_byte = ctx->rx_buffer[ctx->rx_length - 1U];
-    if (last_byte == computed_pec)
+#if (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED)
+    if (smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol) != 0U)
     {
-        *effective_length = candidate_length;
-        *pec_present = 1U;
-        return 1U;
+        if (protocol != (uint8_t)SMBUS_PROTOCOL_READ)
+        {
+            *pec_valid = 0U;
+            return 0U;
+        }
     }
-
-    if (smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol) == 0U)
-    {
-        *effective_length = candidate_length;
-        *pec_present = 1U;
-        *pec_valid = 0U;
-        return 0U;
-    }
+#endif
+#endif
 
     return 1U;
 }
@@ -607,7 +652,9 @@ static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t stat
     }
     else
     {
+#if PMBUS_ENABLE_PEC
         smbus_append_read_pec(ctx, ctx->command_length_without_pec);
+#endif
     }
 
 #if PMBUS_DEBUG_ENABLE
@@ -625,6 +672,7 @@ static void smbus_execute_write_protocol(SMBUS_SLAVE_CONTEXT_T *ctx,
 {
     uint8_t handled;
     uint8_t count;
+    uint16_t word_value;
 
     handled = 0U;
 
@@ -640,6 +688,12 @@ static void smbus_execute_write_protocol(SMBUS_SLAVE_CONTEXT_T *ctx,
 
         case SMBUS_PROTOCOL_WRITE_BYTE:
             handled = SMBusSlave_UserWriteByte(ctx->port_id, command, ctx->rx_buffer[1], pec_present, pec_valid);
+            break;
+
+        case SMBUS_PROTOCOL_WRITE_WORD:
+            word_value = ((uint16_t)ctx->rx_buffer[1]) |
+                         ((uint16_t)ctx->rx_buffer[2] << 8);
+            handled = SMBusSlave_UserWriteWord(ctx->port_id, command, word_value, pec_present, pec_valid);
             break;
 
         case SMBUS_PROTOCOL_BLOCK_WRITE:
@@ -1110,6 +1164,16 @@ __WEAK uint8_t SMBusSlave_UserSendByte(uint8_t port_id, uint8_t command, uint8_t
 }
 
 __WEAK uint8_t SMBusSlave_UserWriteByte(uint8_t port_id, uint8_t command, uint8_t value, uint8_t pec_present, uint8_t pec_valid)
+{
+    port_id = port_id;
+    command = command;
+    value = value;
+    pec_present = pec_present;
+    pec_valid = pec_valid;
+    return 0U;
+}
+
+__WEAK uint8_t SMBusSlave_UserWriteWord(uint8_t port_id, uint8_t command, uint16_t value, uint8_t pec_present, uint8_t pec_valid)
 {
     port_id = port_id;
     command = command;

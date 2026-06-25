@@ -176,8 +176,9 @@ void SMBusSlave_I2C1_Init(void)
 
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_I2C1_SDA_PIN_NAME);
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_I2C1_SCL_PIN_NAME);
-    printf("I2C1 SMBus slave addr7=0x%02X, PEC enabled in software\r\n",
-           (unsigned int)SMBUS_SLAVE_I2C1_ADDRESS_7BIT);
+    printf("I2C1 SMBus slave addr7=0x%02X, %s\r\n",
+           (unsigned int)SMBUS_SLAVE_I2C1_ADDRESS_7BIT,
+           PMBUS_PEC_POLICY_TEXT);
 }
 
 void SMBusSlave_I2C1_Process(void)

@@ -19,6 +19,30 @@
 #define SMBUS_SLAVE_MAX_BLOCK_SIZE           (32U)
 #define SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS     (35U)
 
+#define PMBUS_PEC_POLICY_DISABLED            (0U)
+#define PMBUS_PEC_POLICY_OPTIONAL            (1U)
+#define PMBUS_PEC_POLICY_REQUIRED            (2U)
+
+/*
+ * PEC policy selection:
+ *   DISABLED: no PEC generation/validation.
+ *   OPTIONAL: validate host PEC when present and append read PEC.
+ *   REQUIRED: write-side transactions require valid host PEC.
+ */
+#ifndef PMBUS_PEC_POLICY
+#define PMBUS_PEC_POLICY                     PMBUS_PEC_POLICY_OPTIONAL
+#endif
+
+#define PMBUS_ENABLE_PEC                     ((PMBUS_PEC_POLICY) != PMBUS_PEC_POLICY_DISABLED)
+
+#if (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_DISABLED)
+#define PMBUS_PEC_POLICY_TEXT                "PEC disabled"
+#elif (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED)
+#define PMBUS_PEC_POLICY_TEXT                "PEC required in software"
+#else
+#define PMBUS_PEC_POLICY_TEXT                "PEC optional in software"
+#endif
+
 #ifndef PMBUS_DEBUG_ENABLE
 #define PMBUS_DEBUG_ENABLE                   (1U)
 #endif
@@ -84,6 +108,7 @@
 #define SMBUS_SLAVE_COMMAND_FLAG_BLOCK_WRITE (0x08U)
 #define SMBUS_SLAVE_COMMAND_FLAG_WRITE_BYTE  (0x10U)
 #define SMBUS_SLAVE_COMMAND_FLAG_SEND_BYTE   (0x20U)
+#define SMBUS_SLAVE_COMMAND_FLAG_WRITE_WORD  (0x40U)
 
 #define SMBUS_SLAVE_PMBUS_CLEAR_FAULTS       (0x03U)
 #define SMBUS_SLAVE_PMBUS_REVISION           (0x98U)
@@ -110,6 +135,7 @@ uint8_t SMBusSlave_UserReadWord(uint8_t port_id, uint8_t command, uint16_t *valu
 uint8_t SMBusSlave_UserBlockRead(uint8_t port_id, uint8_t command, uint8_t *data, uint8_t *length);
 uint8_t SMBusSlave_UserSendByte(uint8_t port_id, uint8_t command, uint8_t pec_present, uint8_t pec_valid);
 uint8_t SMBusSlave_UserWriteByte(uint8_t port_id, uint8_t command, uint8_t value, uint8_t pec_present, uint8_t pec_valid);
+uint8_t SMBusSlave_UserWriteWord(uint8_t port_id, uint8_t command, uint16_t value, uint8_t pec_present, uint8_t pec_valid);
 uint8_t SMBusSlave_UserBlockWrite(uint8_t port_id, uint8_t command, const uint8_t *data, uint8_t length, uint8_t pec_present, uint8_t pec_valid);
 void SMBusSlave_UserTimeoutError(uint8_t port_id);
 

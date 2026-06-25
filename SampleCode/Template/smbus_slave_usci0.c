@@ -225,8 +225,9 @@ void SMBusSlave_USCI0_Init(void)
 
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_USCI0_CLK_PIN_NAME);
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_USCI0_DAT0_PIN_NAME);
-    printf("USCI0 SMBus slave addr7=0x%02X, PEC enabled in software\r\n",
-           (unsigned int)SMBUS_SLAVE_USCI0_ADDRESS_7BIT);
+    printf("USCI0 SMBus slave addr7=0x%02X, %s\r\n",
+           (unsigned int)SMBUS_SLAVE_USCI0_ADDRESS_7BIT,
+           PMBUS_PEC_POLICY_TEXT);
 }
 
 void SMBusSlave_USCI0_Process(void)
