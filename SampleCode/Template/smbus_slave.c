@@ -191,8 +191,11 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
                                    uint8_t pec_valid)
 {
 #if PMBUS_DEBUG_PRINT_RX_FRAME
+    SMBUS_DEBUG_RX_FRAME_T *record;
     uint8_t index;
     uint8_t capped_length;
+    uint8_t next_head;
+    uint8_t next_tail;
 
     capped_length = raw_length;
     if (capped_length > SMBUS_SLAVE_RX_BUFFER_SIZE)
@@ -200,19 +203,45 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
         capped_length = SMBUS_SLAVE_RX_BUFFER_SIZE;
     }
 
-    ctx->debug_rx_command = command;
-    ctx->debug_rx_raw_length = capped_length;
-    ctx->debug_rx_payload_length = payload_length;
-    ctx->debug_rx_protocol = protocol;
-    ctx->debug_rx_repeated_start = repeated_start;
-    ctx->debug_rx_pec_present = pec_present;
-    ctx->debug_rx_pec_valid = pec_valid;
+    record = &ctx->debug_rx_queue[ctx->debug_rx_head];
+    record->command = command;
+    record->raw_length = capped_length;
+    record->payload_length = payload_length;
+    record->protocol = protocol;
+    record->repeated_start = repeated_start;
+    record->pec_present = pec_present;
+    record->pec_valid = pec_valid;
 
     for (index = 0U; index < capped_length; index++)
     {
-        ctx->debug_rx_raw[index] = ctx->rx_buffer[index];
+        record->raw[index] = ctx->rx_buffer[index];
     }
 
+    next_head = (uint8_t)(ctx->debug_rx_head + 1U);
+    if (next_head >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+    {
+        next_head = 0U;
+    }
+
+    if (ctx->debug_rx_count >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+    {
+        next_tail = (uint8_t)(ctx->debug_rx_tail + 1U);
+        if (next_tail >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->debug_rx_tail = next_tail;
+        if (ctx->debug_rx_dropped < 0xFFU)
+        {
+            ctx->debug_rx_dropped = (uint8_t)(ctx->debug_rx_dropped + 1U);
+        }
+    }
+    else
+    {
+        ctx->debug_rx_count = (uint8_t)(ctx->debug_rx_count + 1U);
+    }
+
+    ctx->debug_rx_head = next_head;
     ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_RX);
 #else
     ctx = ctx;
@@ -229,8 +258,11 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
 static void smbus_debug_capture_tx(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, uint8_t protocol)
 {
 #if PMBUS_DEBUG_PRINT_TX_READY
+    SMBUS_DEBUG_TX_FRAME_T *record;
     uint8_t index;
     uint8_t capped_length;
+    uint8_t next_head;
+    uint8_t next_tail;
 
     capped_length = ctx->tx_length;
     if (capped_length > SMBUS_SLAVE_TX_BUFFER_SIZE)
@@ -238,15 +270,41 @@ static void smbus_debug_capture_tx(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, 
         capped_length = SMBUS_SLAVE_TX_BUFFER_SIZE;
     }
 
-    ctx->debug_tx_command = command;
-    ctx->debug_tx_protocol = protocol;
-    ctx->debug_tx_length = capped_length;
+    record = &ctx->debug_tx_queue[ctx->debug_tx_head];
+    record->command = command;
+    record->protocol = protocol;
+    record->length = capped_length;
 
     for (index = 0U; index < capped_length; index++)
     {
-        ctx->debug_tx_raw[index] = ctx->tx_buffer[index];
+        record->raw[index] = ctx->tx_buffer[index];
     }
 
+    next_head = (uint8_t)(ctx->debug_tx_head + 1U);
+    if (next_head >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+    {
+        next_head = 0U;
+    }
+
+    if (ctx->debug_tx_count >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+    {
+        next_tail = (uint8_t)(ctx->debug_tx_tail + 1U);
+        if (next_tail >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->debug_tx_tail = next_tail;
+        if (ctx->debug_tx_dropped < 0xFFU)
+        {
+            ctx->debug_tx_dropped = (uint8_t)(ctx->debug_tx_dropped + 1U);
+        }
+    }
+    else
+    {
+        ctx->debug_tx_count = (uint8_t)(ctx->debug_tx_count + 1U);
+    }
+
+    ctx->debug_tx_head = next_head;
     ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_TX);
 #else
     ctx = ctx;
@@ -857,18 +915,16 @@ void SMBusSlave_CoreInit(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t port_id, uint8_t ad
     ctx->timeout_count = 0U;
     ctx->recover_pending = 0U;
 #if PMBUS_DEBUG_ENABLE
-    ctx->debug_rx_command = 0U;
-    ctx->debug_rx_raw_length = 0U;
-    ctx->debug_rx_payload_length = 0U;
-    ctx->debug_rx_protocol = 0U;
-    ctx->debug_rx_repeated_start = 0U;
-    ctx->debug_rx_pec_present = 0U;
-    ctx->debug_rx_pec_valid = 0U;
-    memset(ctx->debug_rx_raw, 0, sizeof(ctx->debug_rx_raw));
-    ctx->debug_tx_command = 0U;
-    ctx->debug_tx_protocol = 0U;
-    ctx->debug_tx_length = 0U;
-    memset(ctx->debug_tx_raw, 0, sizeof(ctx->debug_tx_raw));
+    ctx->debug_rx_head = 0U;
+    ctx->debug_rx_tail = 0U;
+    ctx->debug_rx_count = 0U;
+    ctx->debug_rx_dropped = 0U;
+    ctx->debug_tx_head = 0U;
+    ctx->debug_tx_tail = 0U;
+    ctx->debug_tx_count = 0U;
+    ctx->debug_tx_dropped = 0U;
+    memset(ctx->debug_rx_queue, 0, sizeof(ctx->debug_rx_queue));
+    memset(ctx->debug_tx_queue, 0, sizeof(ctx->debug_tx_queue));
 #endif
     ctx->status_word = 0U;
     ctx->port_id = port_id;
@@ -985,7 +1041,10 @@ uint8_t SMBusSlave_CoreGetAck(const SMBUS_SLAVE_CONTEXT_T *ctx)
 void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNAPSHOT_T *snapshot)
 {
 #if PMBUS_DEBUG_ENABLE
+    SMBUS_DEBUG_RX_FRAME_T *rx_record;
+    SMBUS_DEBUG_TX_FRAME_T *tx_record;
     uint8_t index;
+    uint8_t next_tail;
 #endif
 
     snapshot->events = ctx->event_flags;
@@ -994,35 +1053,93 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
     snapshot->timeout_count = ctx->timeout_count;
     snapshot->recover_pending = ctx->recover_pending;
 #if PMBUS_DEBUG_ENABLE
-    snapshot->debug_rx_command = ctx->debug_rx_command;
-    snapshot->debug_rx_raw_length = ctx->debug_rx_raw_length;
-    if (snapshot->debug_rx_raw_length > SMBUS_SLAVE_RX_BUFFER_SIZE)
+    snapshot->debug_rx_command = 0U;
+    snapshot->debug_rx_raw_length = 0U;
+    snapshot->debug_rx_payload_length = 0U;
+    snapshot->debug_rx_protocol = 0U;
+    snapshot->debug_rx_repeated_start = 0U;
+    snapshot->debug_rx_pec_present = 0U;
+    snapshot->debug_rx_pec_valid = 0U;
+    snapshot->debug_rx_dropped = ctx->debug_rx_dropped;
+    ctx->debug_rx_dropped = 0U;
+    if (ctx->debug_rx_count != 0U)
     {
-        snapshot->debug_rx_raw_length = SMBUS_SLAVE_RX_BUFFER_SIZE;
+        rx_record = &ctx->debug_rx_queue[ctx->debug_rx_tail];
+        snapshot->debug_rx_command = rx_record->command;
+        snapshot->debug_rx_raw_length = rx_record->raw_length;
+        if (snapshot->debug_rx_raw_length > SMBUS_SLAVE_RX_BUFFER_SIZE)
+        {
+            snapshot->debug_rx_raw_length = SMBUS_SLAVE_RX_BUFFER_SIZE;
+        }
+        snapshot->debug_rx_payload_length = rx_record->payload_length;
+        snapshot->debug_rx_protocol = rx_record->protocol;
+        snapshot->debug_rx_repeated_start = rx_record->repeated_start;
+        snapshot->debug_rx_pec_present = rx_record->pec_present;
+        snapshot->debug_rx_pec_valid = rx_record->pec_valid;
+        for (index = 0U; index < snapshot->debug_rx_raw_length; index++)
+        {
+            snapshot->debug_rx_raw[index] = rx_record->raw[index];
+        }
+
+        next_tail = (uint8_t)(ctx->debug_rx_tail + 1U);
+        if (next_tail >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->debug_rx_tail = next_tail;
+        ctx->debug_rx_count = (uint8_t)(ctx->debug_rx_count - 1U);
+        snapshot->events = (uint8_t)(snapshot->events | SMBUS_EVENT_DEBUG_RX);
     }
-    snapshot->debug_rx_payload_length = ctx->debug_rx_payload_length;
-    snapshot->debug_rx_protocol = ctx->debug_rx_protocol;
-    snapshot->debug_rx_repeated_start = ctx->debug_rx_repeated_start;
-    snapshot->debug_rx_pec_present = ctx->debug_rx_pec_present;
-    snapshot->debug_rx_pec_valid = ctx->debug_rx_pec_valid;
-    for (index = 0U; index < snapshot->debug_rx_raw_length; index++)
+    else
     {
-        snapshot->debug_rx_raw[index] = ctx->debug_rx_raw[index];
+        snapshot->events = (uint8_t)(snapshot->events & ((uint8_t)~SMBUS_EVENT_DEBUG_RX));
     }
 
-    snapshot->debug_tx_command = ctx->debug_tx_command;
-    snapshot->debug_tx_protocol = ctx->debug_tx_protocol;
-    snapshot->debug_tx_length = ctx->debug_tx_length;
-    if (snapshot->debug_tx_length > SMBUS_SLAVE_TX_BUFFER_SIZE)
+    snapshot->debug_tx_command = 0U;
+    snapshot->debug_tx_protocol = 0U;
+    snapshot->debug_tx_length = 0U;
+    snapshot->debug_tx_dropped = ctx->debug_tx_dropped;
+    ctx->debug_tx_dropped = 0U;
+    if (ctx->debug_tx_count != 0U)
     {
-        snapshot->debug_tx_length = SMBUS_SLAVE_TX_BUFFER_SIZE;
+        tx_record = &ctx->debug_tx_queue[ctx->debug_tx_tail];
+        snapshot->debug_tx_command = tx_record->command;
+        snapshot->debug_tx_protocol = tx_record->protocol;
+        snapshot->debug_tx_length = tx_record->length;
+        if (snapshot->debug_tx_length > SMBUS_SLAVE_TX_BUFFER_SIZE)
+        {
+            snapshot->debug_tx_length = SMBUS_SLAVE_TX_BUFFER_SIZE;
+        }
+        for (index = 0U; index < snapshot->debug_tx_length; index++)
+        {
+            snapshot->debug_tx_raw[index] = tx_record->raw[index];
+        }
+
+        next_tail = (uint8_t)(ctx->debug_tx_tail + 1U);
+        if (next_tail >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->debug_tx_tail = next_tail;
+        ctx->debug_tx_count = (uint8_t)(ctx->debug_tx_count - 1U);
+        snapshot->events = (uint8_t)(snapshot->events | SMBUS_EVENT_DEBUG_TX);
     }
-    for (index = 0U; index < snapshot->debug_tx_length; index++)
+    else
     {
-        snapshot->debug_tx_raw[index] = ctx->debug_tx_raw[index];
+        snapshot->events = (uint8_t)(snapshot->events & ((uint8_t)~SMBUS_EVENT_DEBUG_TX));
     }
 #endif
     ctx->event_flags = 0U;
+#if PMBUS_DEBUG_ENABLE
+    if (ctx->debug_rx_count != 0U)
+    {
+        ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_RX);
+    }
+    if (ctx->debug_tx_count != 0U)
+    {
+        ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_TX);
+    }
+#endif
     ctx->recover_pending = 0U;
 }
 
@@ -1076,6 +1193,21 @@ void SMBusSlave_CorePrintEvents(uint8_t port_id, const SMBUS_SLAVE_EVENT_SNAPSHO
         printf("bus=%s raw=", port_name);
         smbus_debug_print_raw_bytes(snapshot->debug_tx_raw, snapshot->debug_tx_length);
         printf("\r\n");
+    }
+#endif
+
+#if PMBUS_DEBUG_ENABLE
+    if (snapshot->debug_rx_dropped != 0U)
+    {
+        printf("[SMBus %s] RX debug log dropped=%u\r\n",
+               port_name,
+               (unsigned int)snapshot->debug_rx_dropped);
+    }
+    if (snapshot->debug_tx_dropped != 0U)
+    {
+        printf("[SMBus %s] TX debug log dropped=%u\r\n",
+               port_name,
+               (unsigned int)snapshot->debug_tx_dropped);
     }
 #endif
 

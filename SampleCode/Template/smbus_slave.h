@@ -55,6 +55,14 @@
 #define PMBUS_DEBUG_PRINT_TX_READY           (1U)
 #endif
 
+#ifndef PMBUS_DEBUG_FRAME_QUEUE_SIZE
+#define PMBUS_DEBUG_FRAME_QUEUE_SIZE         (16U)
+#endif
+
+#ifndef PMBUS_DEBUG_TX_QUEUE_SIZE
+#define PMBUS_DEBUG_TX_QUEUE_SIZE            (16U)
+#endif
+
 #define SMBUS_SLAVE_I2C1_SDA_PORT            (PA)
 #define SMBUS_SLAVE_I2C1_SDA_PIN_MASK        (BIT2)
 #define SMBUS_SLAVE_I2C1_SDA                 (PA2)

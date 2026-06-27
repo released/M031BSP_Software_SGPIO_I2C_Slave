@@ -2,7 +2,7 @@
 
 M031 boot-selectable SGPIO target/slave and 2-wire SMBus slave example.
 
-Update: `2026/06/24`
+Update: `2026/06/28`
 
 ## Overview
 
@@ -597,6 +597,12 @@ Important SMBus address and command macros:
 #define PMBUS_PEC_POLICY_REQUIRED            (2U)
 #define PMBUS_PEC_POLICY                     PMBUS_PEC_POLICY_OPTIONAL
 
+#define PMBUS_DEBUG_ENABLE                   (1U)
+#define PMBUS_DEBUG_PRINT_RX_FRAME           (1U)
+#define PMBUS_DEBUG_PRINT_TX_READY           (1U)
+#define PMBUS_DEBUG_FRAME_QUEUE_SIZE         (16U)
+#define PMBUS_DEBUG_TX_QUEUE_SIZE            (16U)
+
 #define SMBUS_SLAVE_PORT_I2C1                (0U)
 #define SMBUS_SLAVE_PORT_I2C0                (1U)
 #define SMBUS_SLAVE_PORT_USCI0               (2U)
@@ -669,6 +675,7 @@ Scope / logic analyzer:
 - If UART output stops at `PMBus RX cmd=0x` and then prints `HardFault!`:
   - Treat it as debug logging stack pressure first. The Keil project overrides __`Stack_Size` to `0x00000800`__; keep this override when `PMBUS_DEBUG_ENABLE=1`.
   - SMBus event snapshots are static per adapter to keep large debug buffers off the runtime stack.
+  - SMBus RX/TX debug snapshots are queued per adapter by `PMBUS_DEBUG_FRAME_QUEUE_SIZE` and `PMBUS_DEBUG_TX_QUEUE_SIZE`; increase these values if scripted SMBus traffic still reports `RX debug log dropped=...` or `TX debug log dropped=...`.
   - Confirm the reset source on the next boot. `HardFault_Handler()` loops after printing the fault dump and does not intentionally reset the MCU.
 - If SMBus logs show timeout:
   - Check whether that port's SCL pin is being held low: `PA3/I2C1_SCL`, `PC1/I2C0_SCL`, or `PD0/USCI0_CLK`.

@@ -18,6 +18,28 @@
 #define SMBUS_STATUS_DATA_TX_NACK            (0xC0U)
 #define SMBUS_STATUS_LAST_TX_ACK             (0xC8U)
 
+#if PMBUS_DEBUG_ENABLE
+typedef struct
+{
+    uint8_t command;
+    uint8_t raw_length;
+    uint8_t payload_length;
+    uint8_t protocol;
+    uint8_t repeated_start;
+    uint8_t pec_present;
+    uint8_t pec_valid;
+    uint8_t raw[SMBUS_SLAVE_RX_BUFFER_SIZE];
+} SMBUS_DEBUG_RX_FRAME_T;
+
+typedef struct
+{
+    uint8_t command;
+    uint8_t protocol;
+    uint8_t length;
+    uint8_t raw[SMBUS_SLAVE_TX_BUFFER_SIZE];
+} SMBUS_DEBUG_TX_FRAME_T;
+#endif
+
 typedef struct
 {
     volatile uint8_t rx_length;
@@ -33,18 +55,16 @@ typedef struct
     volatile uint8_t recover_pending;
 
 #if PMBUS_DEBUG_ENABLE
-    uint8_t debug_rx_command;
-    uint8_t debug_rx_raw_length;
-    uint8_t debug_rx_payload_length;
-    uint8_t debug_rx_protocol;
-    uint8_t debug_rx_repeated_start;
-    uint8_t debug_rx_pec_present;
-    uint8_t debug_rx_pec_valid;
-    uint8_t debug_rx_raw[SMBUS_SLAVE_RX_BUFFER_SIZE];
-    uint8_t debug_tx_command;
-    uint8_t debug_tx_protocol;
-    uint8_t debug_tx_length;
-    uint8_t debug_tx_raw[SMBUS_SLAVE_TX_BUFFER_SIZE];
+    volatile uint8_t debug_rx_head;
+    volatile uint8_t debug_rx_tail;
+    volatile uint8_t debug_rx_count;
+    volatile uint8_t debug_rx_dropped;
+    volatile uint8_t debug_tx_head;
+    volatile uint8_t debug_tx_tail;
+    volatile uint8_t debug_tx_count;
+    volatile uint8_t debug_tx_dropped;
+    SMBUS_DEBUG_RX_FRAME_T debug_rx_queue[PMBUS_DEBUG_FRAME_QUEUE_SIZE];
+    SMBUS_DEBUG_TX_FRAME_T debug_tx_queue[PMBUS_DEBUG_TX_QUEUE_SIZE];
 #endif
 
     uint8_t rx_buffer[SMBUS_SLAVE_RX_BUFFER_SIZE];
@@ -71,10 +91,12 @@ typedef struct
     uint8_t debug_rx_pec_present;
     uint8_t debug_rx_pec_valid;
     uint8_t debug_rx_raw[SMBUS_SLAVE_RX_BUFFER_SIZE];
+    uint8_t debug_rx_dropped;
     uint8_t debug_tx_command;
     uint8_t debug_tx_protocol;
     uint8_t debug_tx_length;
     uint8_t debug_tx_raw[SMBUS_SLAVE_TX_BUFFER_SIZE];
+    uint8_t debug_tx_dropped;
 #endif
 } SMBUS_SLAVE_EVENT_SNAPSHOT_T;
 
