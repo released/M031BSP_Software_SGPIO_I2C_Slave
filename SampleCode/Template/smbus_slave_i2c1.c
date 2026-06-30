@@ -7,8 +7,46 @@ static SMBUS_SLAVE_CONTEXT_T g_smbus_i2c1_ctx;
 static uint16_t g_smbus_i2c1_scl_low_ms;
 static uint8_t g_smbus_i2c1_initialized;
 static uint8_t g_smbus_i2c1_scl_low_state;
+static uint8_t g_smbus_i2c1_address_7bit = SMBUS_SLAVE_I2C1_ADDRESS_7BIT;
+static uint8_t g_smbus_i2c1_command_profile = SMBUS_SLAVE_COMMAND_PROFILE_GENERIC;
+static uint8_t g_smbus_i2c1_read_addressed;
+static uint8_t g_smbus_i2c1_tx_clocked;
 
 /*_____ F U N C T I O N S __________________________________________________*/
+
+static void smbus_i2c1_clear_read_state(void)
+{
+    g_smbus_i2c1_read_addressed = 0U;
+    g_smbus_i2c1_tx_clocked = 0U;
+}
+
+static uint8_t smbus_i2c1_is_quick_read_cleanup(void)
+{
+    if ((g_smbus_i2c1_read_addressed != 0U) &&
+        (g_smbus_i2c1_tx_clocked == 0U))
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+static uint8_t smbus_i2c1_has_read_context(void)
+{
+    if ((g_smbus_i2c1_ctx.pending_read != 0U) ||
+        (g_smbus_i2c1_ctx.rx_length > 0U))
+    {
+        return 1U;
+    }
+
+    if ((g_smbus_i2c1_ctx.transaction.last_send_byte == SMBUS_SLAVE_GENERIC_RECEIVE_SELECT_A) ||
+        (g_smbus_i2c1_ctx.transaction.last_send_byte == SMBUS_SLAVE_GENERIC_RECEIVE_SELECT_B))
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
 
 static uint32_t smbus_i2c1_next_control(void)
 {
@@ -30,8 +68,8 @@ static void smbus_i2c1_config_i2c_pins(void)
 {
     SYS_UnlockReg();
     CLK_EnableModuleClock(I2C1_MODULE);
-    SYS->GPA_MFPL = (SYS->GPA_MFPL & ~SMBUS_SLAVE_I2C1_MFPL_MASK) |
-                    SMBUS_SLAVE_I2C1_MFPL_I2C;
+    SYS->GPA_MFPH = (SYS->GPA_MFPH & ~SMBUS_SLAVE_I2C1_MFPH_MASK) |
+                    SMBUS_SLAVE_I2C1_MFPH_I2C;
     SYS_LockReg();
 
     GPIO_SetMode(SMBUS_SLAVE_I2C1_SDA_PORT,
@@ -47,8 +85,8 @@ static void smbus_i2c1_config_i2c_pins(void)
 static void smbus_i2c1_config_gpio_bus_pins(void)
 {
     SYS_UnlockReg();
-    SYS->GPA_MFPL = (SYS->GPA_MFPL & ~SMBUS_SLAVE_I2C1_MFPL_MASK) |
-                    SMBUS_SLAVE_I2C1_MFPL_GPIO;
+    SYS->GPA_MFPH = (SYS->GPA_MFPH & ~SMBUS_SLAVE_I2C1_MFPH_MASK) |
+                    SMBUS_SLAVE_I2C1_MFPH_GPIO;
     SYS_LockReg();
 
     GPIO_SetMode(SMBUS_SLAVE_I2C1_SDA_PORT,
@@ -139,7 +177,7 @@ static void smbus_i2c1_open_slave(void)
     I2C_Open(I2C1, SMBUS_SLAVE_BUS_CLOCK);
     I2C_DisableTimeout(I2C1);
     I2C_ClearTimeoutFlag(I2C1);
-    I2C_SetSlaveAddr(I2C1, 0U, SMBUS_SLAVE_I2C1_ADDRESS_7BIT, 0U);
+    I2C_SetSlaveAddr(I2C1, 0U, g_smbus_i2c1_address_7bit, 0U);
     I2C_SetSlaveAddrMask(I2C1, 0U, 0U);
     I2C_SET_CONTROL_REG(I2C1, I2C_CTL_SI_AA);
     I2C_EnableInt(I2C1);
@@ -156,6 +194,7 @@ static void smbus_i2c1_recover_bus(void)
     I2C_ClearTimeoutFlag(I2C1);
     I2C_Close(I2C1);
     smbus_i2c1_bus_clear();
+    smbus_i2c1_clear_read_state();
     SMBusSlave_CoreResetBus(&g_smbus_i2c1_ctx);
     smbus_i2c1_reset_clock_low_monitor();
     smbus_i2c1_open_slave();
@@ -163,22 +202,49 @@ static void smbus_i2c1_recover_bus(void)
     SMBusSlave_CoreSetRecovered(&g_smbus_i2c1_ctx);
 }
 
+void SMBusSlave_I2C1_SetAddress(uint8_t address_7bit)
+{
+    if ((address_7bit > 0U) && (address_7bit < 0x80U))
+    {
+        g_smbus_i2c1_address_7bit = address_7bit;
+    }
+}
+
+void SMBusSlave_I2C1_SetCommandProfile(uint8_t profile)
+{
+    if (profile == SMBUS_SLAVE_COMMAND_PROFILE_UBM_CONTROLLER)
+    {
+        g_smbus_i2c1_command_profile = SMBUS_SLAVE_COMMAND_PROFILE_UBM_CONTROLLER;
+    }
+    else
+    {
+        g_smbus_i2c1_command_profile = SMBUS_SLAVE_COMMAND_PROFILE_GENERIC;
+    }
+}
+
 void SMBusSlave_I2C1_Init(void)
 {
     SMBusSlave_CoreInit(&g_smbus_i2c1_ctx,
                         SMBUS_SLAVE_PORT_I2C1,
-                        SMBUS_SLAVE_I2C1_ADDRESS_7BIT,
+                        g_smbus_i2c1_address_7bit,
                         "I2C1");
+    SMBusTransaction_SetProfile(&g_smbus_i2c1_ctx.transaction, g_smbus_i2c1_command_profile);
     g_smbus_i2c1_initialized = 0U;
     smbus_i2c1_reset_clock_low_monitor();
+    smbus_i2c1_clear_read_state();
     smbus_i2c1_open_slave();
     g_smbus_i2c1_initialized = 1U;
 
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_I2C1_SDA_PIN_NAME);
     printf("%s SMBus slave open-drain\r\n", SMBUS_SLAVE_I2C1_SCL_PIN_NAME);
-    printf("I2C1 SMBus slave addr7=0x%02X, %s\r\n",
-           (unsigned int)SMBUS_SLAVE_I2C1_ADDRESS_7BIT,
-           PMBUS_PEC_POLICY_TEXT);
+    printf("I2C1 SMBus slave addr7=0x%02X write=0x%02X read=0x%02X, profile=%s, %s\r\n",
+           (unsigned int)g_smbus_i2c1_address_7bit,
+           (unsigned int)SMBUS_SLAVE_ADDR_7BIT_TO_WRITE(g_smbus_i2c1_address_7bit),
+           (unsigned int)SMBUS_SLAVE_ADDR_7BIT_TO_READ(g_smbus_i2c1_address_7bit),
+           SMBusTransaction_GetProfileName(g_smbus_i2c1_command_profile),
+           (g_smbus_i2c1_command_profile == SMBUS_SLAVE_COMMAND_PROFILE_UBM_CONTROLLER) ?
+           "UBM checksum seed 0xA5" :
+           SMBUS_PEC_POLICY_TEXT);
 }
 
 void SMBusSlave_I2C1_Process(void)
@@ -229,41 +295,67 @@ void I2C1_IRQHandler(void)
         switch (status)
         {
             case SMBUS_STATUS_SLA_W_ACK:
+                smbus_i2c1_clear_read_state();
                 SMBusSlave_CoreOnAddressWrite(&g_smbus_i2c1_ctx);
                 break;
 
             case SMBUS_STATUS_DATA_RX_ACK:
+                smbus_i2c1_clear_read_state();
                 SMBusSlave_CoreOnReceiveByte(&g_smbus_i2c1_ctx, (uint8_t)I2C_GET_DATA(I2C1));
                 break;
 
             case SMBUS_STATUS_DATA_RX_NACK:
+                smbus_i2c1_clear_read_state();
                 SMBusSlave_CoreOnReceiveNack(&g_smbus_i2c1_ctx);
                 break;
 
             case SMBUS_STATUS_STOP_RESTART:
+                smbus_i2c1_clear_read_state();
                 SMBusSlave_CoreOnStopOrRestart(&g_smbus_i2c1_ctx, status);
                 break;
 
             case SMBUS_STATUS_SLA_R_ACK:
-                tx_byte = SMBusSlave_CoreOnAddressRead(&g_smbus_i2c1_ctx, status);
-                I2C_SET_DATA(I2C1, tx_byte);
+                g_smbus_i2c1_read_addressed = 1U;
+                g_smbus_i2c1_tx_clocked = 0U;
+                if (smbus_i2c1_has_read_context() != 0U)
+                {
+                    tx_byte = SMBusSlave_CoreOnAddressRead(&g_smbus_i2c1_ctx, status);
+                    I2C_SET_DATA(I2C1, tx_byte);
+                }
+                else
+                {
+                    SMBusSlave_CoreResetBus(&g_smbus_i2c1_ctx);
+                    I2C_SET_DATA(I2C1, 0xFFU);
+                }
                 break;
 
             case SMBUS_STATUS_DATA_TX_ACK:
+                g_smbus_i2c1_tx_clocked = 1U;
                 tx_byte = SMBusSlave_CoreOnTransmitAck(&g_smbus_i2c1_ctx);
                 I2C_SET_DATA(I2C1, tx_byte);
                 break;
 
             case SMBUS_STATUS_DATA_TX_NACK:
             case SMBUS_STATUS_LAST_TX_ACK:
+                g_smbus_i2c1_tx_clocked = 1U;
                 SMBusSlave_CoreOnTransmitDone(&g_smbus_i2c1_ctx);
+                smbus_i2c1_clear_read_state();
                 break;
 
             case SMBUS_STATUS_BUS_ERROR:
-                SMBusSlave_CoreOnBusError(&g_smbus_i2c1_ctx, status);
+                if (smbus_i2c1_is_quick_read_cleanup() != 0U)
+                {
+                    SMBusSlave_CoreOnTransmitDone(&g_smbus_i2c1_ctx);
+                    smbus_i2c1_clear_read_state();
+                }
+                else
+                {
+                    SMBusSlave_CoreOnBusError(&g_smbus_i2c1_ctx, status);
+                }
                 break;
 
             default:
+                smbus_i2c1_clear_read_state();
                 SMBusSlave_CoreResetBus(&g_smbus_i2c1_ctx);
                 break;
         }

@@ -34,7 +34,28 @@
 
 #define SGPIO_SLAVE_MAX_SLOTS            (16U)
 #define SGPIO_SLAVE_RX_MAX_BYTES         (8U)
+#define SGPIO_SLAVE_DATA_BITS_PER_SLOT   (3U)
 
+typedef struct
+{
+    uint32_t frame_count;
+    uint32_t dropped_frames;
+    uint16_t bit_count;
+    uint16_t act_mask;
+    uint16_t locate_mask;
+    uint16_t fail_mask;
+    uint8_t raw[SGPIO_SLAVE_RX_MAX_BYTES];
+    uint8_t raw_len;
+    uint8_t sload_raw;
+    uint8_t sload_raw_valid;
+    uint8_t low_sync_count;
+    uint8_t overflow;
+    uint8_t valid;
+} SGPIO_FRAME_T;
+
+typedef void (*SGPIO_FRAME_DECODED_CALLBACK_T)(const SGPIO_FRAME_T *frame);
+
+void SGPIO_SetFrameDecodedCallback(SGPIO_FRAME_DECODED_CALLBACK_T callback);
 void SGPIO_Init(void);
 void SGPIO_Process(void);
 void SGPIO_OnClockRisingSampledIrq(uint8_t sload_value, uint8_t sdata_value);

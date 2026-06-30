@@ -3,9 +3,14 @@
 
 #include <stdint.h>
 #include "smbus_slave.h"
+#include "smbus_transaction.h"
 
 #define SMBUS_SLAVE_RX_BUFFER_SIZE           (40U)
-#define SMBUS_SLAVE_TX_BUFFER_SIZE           (34U)
+#define SMBUS_SLAVE_TX_BUFFER_SIZE           (40U)
+
+#ifndef SMBUS_WRITE_DONE_QUEUE_SIZE
+#define SMBUS_WRITE_DONE_QUEUE_SIZE          SMBUS_DEBUG_FRAME_QUEUE_SIZE
+#endif
 
 #define SMBUS_STATUS_BUS_ERROR               (0x00U)
 #define SMBUS_STATUS_TIMEOUT                 (0x20U)
@@ -18,10 +23,11 @@
 #define SMBUS_STATUS_DATA_TX_NACK            (0xC0U)
 #define SMBUS_STATUS_LAST_TX_ACK             (0xC8U)
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
 typedef struct
 {
     uint8_t command;
+    uint8_t profile;
     uint8_t raw_length;
     uint8_t payload_length;
     uint8_t protocol;
@@ -34,6 +40,7 @@ typedef struct
 typedef struct
 {
     uint8_t command;
+    uint8_t profile;
     uint8_t protocol;
     uint8_t length;
     uint8_t raw[SMBUS_SLAVE_TX_BUFFER_SIZE];
@@ -51,10 +58,14 @@ typedef struct
     volatile uint8_t event_flags;
     volatile uint8_t last_event_command;
     volatile uint8_t last_event_status;
+    volatile uint8_t write_done_head;
+    volatile uint8_t write_done_tail;
+    volatile uint8_t write_done_count;
+    volatile uint8_t write_done_dropped;
     volatile uint8_t timeout_count;
     volatile uint8_t recover_pending;
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     volatile uint8_t debug_rx_head;
     volatile uint8_t debug_rx_tail;
     volatile uint8_t debug_rx_count;
@@ -63,13 +74,16 @@ typedef struct
     volatile uint8_t debug_tx_tail;
     volatile uint8_t debug_tx_count;
     volatile uint8_t debug_tx_dropped;
-    SMBUS_DEBUG_RX_FRAME_T debug_rx_queue[PMBUS_DEBUG_FRAME_QUEUE_SIZE];
-    SMBUS_DEBUG_TX_FRAME_T debug_tx_queue[PMBUS_DEBUG_TX_QUEUE_SIZE];
+    SMBUS_DEBUG_RX_FRAME_T debug_rx_queue[SMBUS_DEBUG_FRAME_QUEUE_SIZE];
+    SMBUS_DEBUG_TX_FRAME_T debug_tx_queue[SMBUS_DEBUG_TX_QUEUE_SIZE];
 #endif
 
     uint8_t rx_buffer[SMBUS_SLAVE_RX_BUFFER_SIZE];
     uint8_t tx_buffer[SMBUS_SLAVE_TX_BUFFER_SIZE];
+    uint8_t write_done_command_queue[SMBUS_WRITE_DONE_QUEUE_SIZE];
+    uint8_t write_done_status_queue[SMBUS_WRITE_DONE_QUEUE_SIZE];
     uint16_t status_word;
+    SMBUS_TRANSACTION_CONTEXT_T transaction;
     uint8_t port_id;
     uint8_t address_7bit;
     const char *port_name;
@@ -80,10 +94,14 @@ typedef struct
     uint8_t events;
     uint8_t command;
     uint8_t status;
+    uint8_t write_done_command;
+    uint8_t write_done_status;
+    uint8_t write_done_dropped;
     uint8_t timeout_count;
     uint8_t recover_pending;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     uint8_t debug_rx_command;
+    uint8_t debug_rx_profile;
     uint8_t debug_rx_raw_length;
     uint8_t debug_rx_payload_length;
     uint8_t debug_rx_protocol;
@@ -93,6 +111,7 @@ typedef struct
     uint8_t debug_rx_raw[SMBUS_SLAVE_RX_BUFFER_SIZE];
     uint8_t debug_rx_dropped;
     uint8_t debug_tx_command;
+    uint8_t debug_tx_profile;
     uint8_t debug_tx_protocol;
     uint8_t debug_tx_length;
     uint8_t debug_tx_raw[SMBUS_SLAVE_TX_BUFFER_SIZE];

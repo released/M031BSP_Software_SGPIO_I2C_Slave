@@ -1,0 +1,822 @@
+
+CLK_GetCPUFreq : 48000000
+CLK_GetHCLKFreq : 48000000
+CLK_GetHXTFreq :        0
+CLK_GetLXTFreq :        0
+CLK_GetPCLK0Freq : 48000000
+CLK_GetPCLK1Freq : 48000000
+Reset Source <0x00000041>
+0)POR Reset Flag
+6)Reserved.
+power on from POR
+task1 id = 0
+task2 id = 1
+task3 id = 2
+BP_TYPE(PF14)=1 -> 2 Wire SMBus slave profile
+ADC VDD=2976 mV bandgap_raw=1651 bandgap_trim=4095 low<=893 mV high>=2083 mV
+ADC0_CH11 addr select raw=1 mv=1 level=LOW
+SMBus address matrix: I2C1 addr7=0x60 write=0xC0 read=0xC1, USCI0 addr7=0x61 write=0xC2 read=0xC3
+ADC0_CH12 SMBus role raw=4095 mv=2976 level=HIGH
+SMBus role matrix: VPP
+ADC0_CH13 user option raw=2 mv=1 level=LOW
+User option CH13: ON
+ADC0_CH14 SGPIO group raw=4095 mv=2976 level=HIGH
+SGPIO group matrix: SGPIO OD0-OD3
+ADC0_CH15 user option raw=4095 mv=2976 level=HIGH
+User option CH15: ON
+PC0/I2C0_SDA SMBus slave open-drain
+PC1/I2C0_SCL SMBus slave open-drain
+I2C0 SMBus slave addr7=0x6A write=0xD4 read=0xD5, PEC optional in software
+PA13/I2C1_SDA SMBus slave open-drain
+PA12/I2C1_SCL SMBus slave open-drain
+I2C1 SMBus slave addr7=0x60 write=0xC0 read=0xC1, profile=Generic SMBus, PEC optional in software
+PD0/USCI0_CLK SMBus slave open-drain
+PD1/USCI0_DAT0 SMBus slave open-drain
+USCI0 SMBus slave addr7=0x61 write=0xC2 read=0xC3, profile=Generic SMBus, PEC optional in software
+SMBus role: Generic SMBus commands 0x10..0x61 examples, PEC optional in software
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 9D proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 9A proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=00 F8
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 94 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x13
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=80 71
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=01 FF
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 23 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 B8 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=00 C7
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=80 25
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 E8 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 A4 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=I2C1 raw=32 00 EF
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=I2C1 raw=33 80 65
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=I2C1
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 F4 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=I2C1
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 F2 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=I2C1 raw=08 10 11 12 13 14 15 16 00 F0
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=I2C1 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 80 BA
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=02 F6
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=45 00 76
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=32 80 4A
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=I2C1
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=I2C1 raw=08 02 03 04 05 06 07 08 00 99
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=I2C1
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=I2C1 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 80 D3
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=03 F1
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A 2D proto=UNKNOWN bus=I2C1
+[SMBus I2C1] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=04 E4
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 9D proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 9A proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=05 E3
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 94 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x13
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=81 76
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=06 EA
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 23 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 B8 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=01 C0
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=81 22
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 E8 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 A4 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=I2C1 raw=32 01 E8
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=I2C1 raw=33 81 62
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=I2C1
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 F4 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=I2C1
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 F2 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=I2C1 raw=08 10 11 12 13 14 15 16 01 F7
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=I2C1 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 81 BD
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=07 ED
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=45 01 71
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=32 81 4D
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=I2C1
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=I2C1 raw=08 02 03 04 05 06 07 08 01 9E
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=I2C1
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=I2C1 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 81 D4
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=08 C0
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A 2D proto=UNKNOWN bus=I2C1
+[SMBus I2C1] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=09 C7
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 9D proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 9A proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=0A CE
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 94 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x13
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=82 7F
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=0B C9
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 23 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 B8 proto=WRITE_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=02 C9
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=I2C1
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=I2C1 raw=82 2B
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 E8 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=I2C1
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 A4 proto=WRITE_WORD bus=I2C1
+[SMBus I2C1] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=I2C1 raw=32 02 E1
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=I2C1
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=I2C1 raw=33 82 6B
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=I2C1
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 F4 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=I2C1
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 F2 proto=BLOCK_WRITE bus=I2C1
+[SMBus I2C1] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=I2C1 raw=08 10 11 12 13 14 15 16 02 FE
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=I2C1
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=I2C1
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=I2C1 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 82 B4
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=0C DC
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=45 02 78
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=I2C1
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=I2C1 raw=32 82 44
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=I2C1
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=I2C1 raw=08 02 03 04 05 06 07 08 02 97
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=I2C1
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=I2C1
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=I2C1 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 82 DD
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=0D DB
+[SMBus I2C1] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=I2C1
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A 2D proto=UNKNOWN bus=I2C1
+[SMBus I2C1] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=I2C1
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 93 proto=SEND_BYTE bus=I2C1
+[SMBus I2C1] write done cmd=0x12
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=I2C1 raw=0E D2
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 B7 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 B0 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=00 D2
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 BE proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=80 5B
+[SMBus USCI0] write done cmd=0x13
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=01 D5
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 F5 proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 6E proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=00 C1
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=80 23
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 C4 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 88 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=USCI0 raw=32 00 FD
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=USCI0 raw=33 80 77
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=USCI0
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 CA proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=USCI0
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 59 proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=USCI0 raw=08 10 11 12 13 14 15 16 00 9A
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=USCI0 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 80 B6
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=02 DC
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=45 00 19
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=32 80 25
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=USCI0
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=USCI0 raw=08 02 03 04 05 06 07 08 00 C6
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=USCI0
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=USCI0 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 80 9E
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=03 DB
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A FB proto=UNKNOWN bus=USCI0
+[SMBus USCI0] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=04 CE
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 B7 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 B0 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=05 C9
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 BE proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=81 5C
+[SMBus USCI0] write done cmd=0x13
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=06 C0
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 F5 proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 6E proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=01 C6
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=81 24
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 C4 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 88 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=USCI0 raw=32 01 FA
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=USCI0 raw=33 81 70
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=USCI0
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 CA proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=USCI0
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 59 proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=USCI0 raw=08 10 11 12 13 14 15 16 01 9D
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=USCI0 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 81 B1
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=07 C7
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=45 01 1E
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=32 81 22
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=USCI0
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=USCI0 raw=08 02 03 04 05 06 07 08 01 C1
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=USCI0
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=USCI0 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 81 99
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=08 EA
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A FB proto=UNKNOWN bus=USCI0
+[SMBus USCI0] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=09 ED
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x10 (SMB_EXAMPLE_SEND_BYTE_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=10 B7 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x10
+SMBus RX cmd=0x11 (SMB_EXAMPLE_SEND_BYTE_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=11 B0 proto=SEND_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x11
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=0A E4
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=13 BE proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x13 (SMB_EXAMPLE_RECEIVE_SELECT_B) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=82 55
+[SMBus USCI0] write done cmd=0x13
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=0B E3
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=20 00 F5 proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x20
+SMBus RX cmd=0x21 (SMB_EXAMPLE_WRITE_BYTE_B) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=2
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=21 81 6E proto=WRITE_BYTE bus=USCI0
+[SMBus USCI0] write done cmd=0x21
+SMBus RX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=22 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x22 (SMB_EXAMPLE_READ_BYTE_A) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=02 CF
+SMBus RX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=4
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=23 proto=READ_BYTE bus=USCI0
+SMBus TX cmd=0x23 (SMB_EXAMPLE_READ_BYTE_B) proto=4 (READ_BYTE) len=2 bus=USCI0 raw=82 2D
+SMBus RX cmd=0x30 (SMB_EXAMPLE_WRITE_WORD_A) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=30 34 02 C4 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x30
+SMBus RX cmd=0x31 (SMB_EXAMPLE_WRITE_WORD_B) bus=USCI0
+SMBus RX info raw=4 payload=2 proto=3
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=31 CD 83 88 proto=WRITE_WORD bus=USCI0
+[SMBus USCI0] write done cmd=0x31
+SMBus RX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=32 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x32 (SMB_EXAMPLE_READ_WORD_A) proto=5 (READ_WORD) len=3 bus=USCI0 raw=32 02 F3
+SMBus RX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=5
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=33 proto=READ_WORD bus=USCI0
+SMBus TX cmd=0x33 (SMB_EXAMPLE_READ_WORD_B) proto=5 (READ_WORD) len=3 bus=USCI0 raw=33 82 79
+SMBus RX cmd=0x40 (SMB_EXAMPLE_BLOCK_WRITE_A) bus=USCI0
+SMBus RX info raw=11 payload=9 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=40 08 10 11 12 13 14 15 16 04 CA proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x40
+SMBus RX cmd=0x41 (SMB_EXAMPLE_BLOCK_WRITE_B) bus=USCI0
+SMBus RX info raw=19 payload=17 proto=7
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=41 10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 85 59 proto=BLOCK_WRITE bus=USCI0
+[SMBus USCI0] write done cmd=0x41
+SMBus RX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=42 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x42 (SMB_EXAMPLE_BLOCK_READ_A) proto=8 (BLOCK_READ) len=10 bus=USCI0 raw=08 10 11 12 13 14 15 16 02 94
+SMBus RX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) bus=USCI0
+SMBus RX info raw=1 payload=0 proto=8
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=43 proto=BLOCK_READ bus=USCI0
+SMBus TX cmd=0x43 (SMB_EXAMPLE_BLOCK_READ_B) proto=8 (BLOCK_READ) len=18 bus=USCI0 raw=10 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 82 B8
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=0C F6
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=50 34 06 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x50 (SMB_EXAMPLE_PROCESS_CALL_A) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=45 02 17
+SMBus RX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) bus=USCI0
+SMBus RX info raw=3 payload=2 proto=9
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=51 CD 87 proto=PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x51 (SMB_EXAMPLE_PROCESS_CALL_B) proto=9 (PROCESS_CALL) len=3 bus=USCI0 raw=32 82 2B
+SMBus RX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) bus=USCI0
+SMBus RX info raw=10 payload=9 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=60 08 01 02 03 04 05 06 07 08 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x60 (SMB_EXAMPLE_BLOCK_PROC_CALL_A) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=10 bus=USCI0 raw=08 02 03 04 05 06 07 08 02 C8
+SMBus RX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) bus=USCI0
+SMBus RX info raw=18 payload=17 proto=10
+SMBus RX pec rs=1 pec=0 valid=1
+SMBus RX raw=61 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 89 proto=BLOCK_WRITE_READ_PROCESS_CALL bus=USCI0
+SMBus TX cmd=0x61 (SMB_EXAMPLE_BLOCK_PROC_CALL_B) proto=10 (BLOCK_WRITE_READ_PROCESS_CALL) len=18 bus=USCI0 raw=10 89 1F 1E 1D 1C 1B 1A 19 18 17 16 15 14 13 12 82 90
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=0D F1
+[SMBus USCI0] write done cmd=0x12
+SMBus RX cmd=0x20 (SMB_EXAMPLE_WRITE_BYTE_A) bus=USCI0
+SMBus RX info raw=3 payload=1 proto=0
+SMBus RX pec rs=0 pec=1 valid=0
+SMBus RX raw=20 4A FB proto=UNKNOWN bus=USCI0
+[SMBus USCI0] PEC error cmd=0x20 status=0xA0
+SMBus RX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) bus=USCI0
+SMBus RX info raw=2 payload=0 proto=1
+SMBus RX pec rs=0 pec=1 valid=1
+SMBus RX raw=12 B9 proto=SEND_BYTE bus=USCI0
+SMBus TX cmd=0x12 (SMB_EXAMPLE_RECEIVE_SELECT_A) proto=6 (RECEIVE_BYTE) len=2 bus=USCI0 raw=0E F8
+[SMBus USCI0] write done cmd=0x12

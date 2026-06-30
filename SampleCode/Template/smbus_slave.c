@@ -13,7 +13,11 @@ typedef enum
     SMBUS_PROTOCOL_BLOCK_WRITE,
     SMBUS_PROTOCOL_WRITE_BYTE,
     SMBUS_PROTOCOL_WRITE_WORD,
-    SMBUS_PROTOCOL_SEND_BYTE
+    SMBUS_PROTOCOL_SEND_BYTE,
+    SMBUS_PROTOCOL_PROCESS_CALL,
+    SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL,
+    SMBUS_PROTOCOL_UBM_CONTROLLER_READ,
+    SMBUS_PROTOCOL_UBM_CONTROLLER_WRITE
 } SMBUS_PROTOCOL_T;
 
 /*_____ D E F I N I T I O N S ______________________________________________*/
@@ -24,26 +28,28 @@ typedef enum
 #define SMBUS_EVENT_UNSUPPORTED              (0x08U)
 #define SMBUS_EVENT_WRITE_DONE               (0x10U)
 #define SMBUS_EVENT_RECOVERED                (0x20U)
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
 #define SMBUS_EVENT_DEBUG_RX                 (0x40U)
 #define SMBUS_EVENT_DEBUG_TX                 (0x80U)
 #endif
 
 #define SMBUS_STATUS_WORD_CML                (0x0002U)
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
 #define SMBUS_DEBUG_PROTOCOL_NONE            (0U)
 #define SMBUS_DEBUG_PROTOCOL_SEND_BYTE       (1U)
 #define SMBUS_DEBUG_PROTOCOL_WRITE_BYTE      (2U)
 #define SMBUS_DEBUG_PROTOCOL_WRITE_WORD      (3U)
 #define SMBUS_DEBUG_PROTOCOL_READ_BYTE       (4U)
 #define SMBUS_DEBUG_PROTOCOL_READ_WORD       (5U)
+#define SMBUS_DEBUG_PROTOCOL_RECEIVE_BYTE    (6U)
 #define SMBUS_DEBUG_PROTOCOL_BLOCK_WRITE     (7U)
 #define SMBUS_DEBUG_PROTOCOL_BLOCK_READ      (8U)
+#define SMBUS_DEBUG_PROTOCOL_PROCESS_CALL    (9U)
+#define SMBUS_DEBUG_PROTOCOL_BLOCK_PROC_CALL (10U)
+#define SMBUS_DEBUG_PROTOCOL_UBM_READ        (11U)
+#define SMBUS_DEBUG_PROTOCOL_UBM_WRITE       (12U)
 #endif
-
-static const char g_smbus_mfr_id[] = "MFR_ID_001";
-static const char g_smbus_mfr_model[] = "MFR_MODEL_001";
 
 /*_____ M A C R O S ________________________________________________________*/
 
@@ -52,11 +58,54 @@ static const char g_smbus_mfr_model[] = "MFR_MODEL_001";
 
 /*_____ F U N C T I O N S __________________________________________________*/
 
+static void smbus_enqueue_write_done_event(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, uint8_t status)
+{
+    uint8_t next_head;
+    uint8_t next_tail;
+
+    ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_WRITE_DONE);
+    ctx->write_done_command_queue[ctx->write_done_head] = command;
+    ctx->write_done_status_queue[ctx->write_done_head] = status;
+
+    next_head = (uint8_t)(ctx->write_done_head + 1U);
+    if (next_head >= SMBUS_WRITE_DONE_QUEUE_SIZE)
+    {
+        next_head = 0U;
+    }
+
+    if (ctx->write_done_count >= SMBUS_WRITE_DONE_QUEUE_SIZE)
+    {
+        next_tail = (uint8_t)(ctx->write_done_tail + 1U);
+        if (next_tail >= SMBUS_WRITE_DONE_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->write_done_tail = next_tail;
+        if (ctx->write_done_dropped < 0xFFU)
+        {
+            ctx->write_done_dropped = (uint8_t)(ctx->write_done_dropped + 1U);
+        }
+    }
+    else
+    {
+        ctx->write_done_count = (uint8_t)(ctx->write_done_count + 1U);
+    }
+
+    ctx->write_done_head = next_head;
+}
+
 static void smbus_set_event(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t event_id, uint8_t command, uint8_t status)
 {
-    ctx->event_flags = (uint8_t)(ctx->event_flags | event_id);
-    ctx->last_event_command = command;
-    ctx->last_event_status = status;
+    if (event_id == SMBUS_EVENT_WRITE_DONE)
+    {
+        smbus_enqueue_write_done_event(ctx, command, status);
+    }
+    else
+    {
+        ctx->event_flags = (uint8_t)(ctx->event_flags | event_id);
+        ctx->last_event_command = command;
+        ctx->last_event_status = status;
+    }
 }
 
 static const char *smbus_get_port_name_from_id(uint8_t port_id)
@@ -79,25 +128,15 @@ static const char *smbus_get_port_name_from_id(uint8_t port_id)
     return "?";
 }
 
-#if PMBUS_DEBUG_ENABLE
-static const char *smbus_debug_get_command_name(uint8_t command)
+#if SMBUS_DEBUG_ENABLE
+static const char *smbus_debug_get_command_name(uint8_t profile, uint8_t command)
 {
-    switch (command)
+    const char *generic_name;
+
+    generic_name = SMBusTransaction_GetCommandNameByProfile(profile, command);
+    if (generic_name != (const char *)0)
     {
-        case SMBUS_SLAVE_PMBUS_CLEAR_FAULTS:
-            return "CLEAR_FAULTS";
-
-        case SMBUS_SLAVE_PMBUS_REVISION:
-            return "PMBUS_REVISION";
-
-        case SMBUS_SLAVE_PMBUS_MFR_ID:
-            return "MFR_ID";
-
-        case SMBUS_SLAVE_PMBUS_MFR_MODEL:
-            return "MFR_MODEL";
-
-        default:
-            break;
+        return generic_name;
     }
 
     return "UNKNOWN";
@@ -122,11 +161,26 @@ static const char *smbus_debug_get_protocol_name(uint8_t protocol)
         case SMBUS_DEBUG_PROTOCOL_READ_WORD:
             return "READ_WORD";
 
+        case SMBUS_DEBUG_PROTOCOL_RECEIVE_BYTE:
+            return "RECEIVE_BYTE";
+
         case SMBUS_DEBUG_PROTOCOL_BLOCK_WRITE:
             return "BLOCK_WRITE";
 
         case SMBUS_DEBUG_PROTOCOL_BLOCK_READ:
             return "BLOCK_READ";
+
+        case SMBUS_DEBUG_PROTOCOL_PROCESS_CALL:
+            return "PROCESS_CALL";
+
+        case SMBUS_DEBUG_PROTOCOL_BLOCK_PROC_CALL:
+            return "BLOCK_WRITE_READ_PROCESS_CALL";
+
+        case SMBUS_DEBUG_PROTOCOL_UBM_READ:
+            return "UBM_CONTROLLER_READ";
+
+        case SMBUS_DEBUG_PROTOCOL_UBM_WRITE:
+            return "UBM_CONTROLLER_WRITE";
 
         default:
             break;
@@ -174,6 +228,18 @@ static uint8_t smbus_debug_protocol_from_core(uint8_t protocol, uint8_t flags)
         case SMBUS_PROTOCOL_SEND_BYTE:
             return SMBUS_DEBUG_PROTOCOL_SEND_BYTE;
 
+        case SMBUS_PROTOCOL_PROCESS_CALL:
+            return SMBUS_DEBUG_PROTOCOL_PROCESS_CALL;
+
+        case SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL:
+            return SMBUS_DEBUG_PROTOCOL_BLOCK_PROC_CALL;
+
+        case SMBUS_PROTOCOL_UBM_CONTROLLER_READ:
+            return SMBUS_DEBUG_PROTOCOL_UBM_READ;
+
+        case SMBUS_PROTOCOL_UBM_CONTROLLER_WRITE:
+            return SMBUS_DEBUG_PROTOCOL_UBM_WRITE;
+
         default:
             break;
     }
@@ -190,7 +256,7 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
                                    uint8_t pec_present,
                                    uint8_t pec_valid)
 {
-#if PMBUS_DEBUG_PRINT_RX_FRAME
+#if SMBUS_DEBUG_PRINT_RX_FRAME
     SMBUS_DEBUG_RX_FRAME_T *record;
     uint8_t index;
     uint8_t capped_length;
@@ -205,6 +271,7 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
 
     record = &ctx->debug_rx_queue[ctx->debug_rx_head];
     record->command = command;
+    record->profile = SMBusTransaction_GetProfile(&ctx->transaction);
     record->raw_length = capped_length;
     record->payload_length = payload_length;
     record->protocol = protocol;
@@ -218,15 +285,15 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
     }
 
     next_head = (uint8_t)(ctx->debug_rx_head + 1U);
-    if (next_head >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+    if (next_head >= SMBUS_DEBUG_FRAME_QUEUE_SIZE)
     {
         next_head = 0U;
     }
 
-    if (ctx->debug_rx_count >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+    if (ctx->debug_rx_count >= SMBUS_DEBUG_FRAME_QUEUE_SIZE)
     {
         next_tail = (uint8_t)(ctx->debug_rx_tail + 1U);
-        if (next_tail >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+        if (next_tail >= SMBUS_DEBUG_FRAME_QUEUE_SIZE)
         {
             next_tail = 0U;
         }
@@ -257,7 +324,7 @@ static void smbus_debug_capture_rx(SMBUS_SLAVE_CONTEXT_T *ctx,
 
 static void smbus_debug_capture_tx(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, uint8_t protocol)
 {
-#if PMBUS_DEBUG_PRINT_TX_READY
+#if SMBUS_DEBUG_PRINT_TX_READY
     SMBUS_DEBUG_TX_FRAME_T *record;
     uint8_t index;
     uint8_t capped_length;
@@ -272,6 +339,7 @@ static void smbus_debug_capture_tx(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, 
 
     record = &ctx->debug_tx_queue[ctx->debug_tx_head];
     record->command = command;
+    record->profile = SMBusTransaction_GetProfile(&ctx->transaction);
     record->protocol = protocol;
     record->length = capped_length;
 
@@ -281,15 +349,15 @@ static void smbus_debug_capture_tx(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, 
     }
 
     next_head = (uint8_t)(ctx->debug_tx_head + 1U);
-    if (next_head >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+    if (next_head >= SMBUS_DEBUG_TX_QUEUE_SIZE)
     {
         next_head = 0U;
     }
 
-    if (ctx->debug_tx_count >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+    if (ctx->debug_tx_count >= SMBUS_DEBUG_TX_QUEUE_SIZE)
     {
         next_tail = (uint8_t)(ctx->debug_tx_tail + 1U);
-        if (next_tail >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+        if (next_tail >= SMBUS_DEBUG_TX_QUEUE_SIZE)
         {
             next_tail = 0U;
         }
@@ -351,7 +419,7 @@ static void smbus_reset_tx(SMBUS_SLAVE_CONTEXT_T *ctx)
     ctx->tx_index = 0U;
 }
 
-#if PMBUS_ENABLE_PEC
+#if SMBUS_ENABLE_PEC
 static uint8_t smbus_pec_update(uint8_t crc, uint8_t data_byte)
 {
     uint8_t bit_index;
@@ -413,33 +481,37 @@ static void smbus_append_read_pec(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command_le
     ctx->tx_buffer[ctx->tx_length] = crc;
     ctx->tx_length = (uint8_t)(ctx->tx_length + 1U);
 }
-#endif
 
-static uint8_t smbus_get_builtin_command_flags(uint8_t command)
+static void smbus_append_receive_byte_pec(SMBUS_SLAVE_CONTEXT_T *ctx)
 {
-    uint8_t flags;
+    uint8_t crc;
+    uint8_t index;
 
-    flags = 0U;
-    switch (command)
+    if (ctx->tx_length >= SMBUS_SLAVE_TX_BUFFER_SIZE)
     {
-        case SMBUS_SLAVE_PMBUS_CLEAR_FAULTS:
-            flags = SMBUS_SLAVE_COMMAND_FLAG_SEND_BYTE;
-            break;
-
-        case SMBUS_SLAVE_PMBUS_REVISION:
-            flags = SMBUS_SLAVE_COMMAND_FLAG_READ_BYTE;
-            break;
-
-        case SMBUS_SLAVE_PMBUS_MFR_ID:
-        case SMBUS_SLAVE_PMBUS_MFR_MODEL:
-            flags = SMBUS_SLAVE_COMMAND_FLAG_BLOCK_READ;
-            break;
-
-        default:
-            break;
+        return;
     }
 
-    return flags;
+    crc = 0U;
+    crc = smbus_pec_update(crc, SMBUS_ADDRESS_READ(ctx->address_7bit));
+    for (index = 0U; index < ctx->tx_length; index++)
+    {
+        crc = smbus_pec_update(crc, ctx->tx_buffer[index]);
+    }
+
+    ctx->tx_buffer[ctx->tx_length] = crc;
+    ctx->tx_length = (uint8_t)(ctx->tx_length + 1U);
+}
+#endif
+
+static uint8_t smbus_get_builtin_command_flags(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command)
+{
+    if (SMBusTransaction_GetProfile(&ctx->transaction) == SMBUS_SLAVE_COMMAND_PROFILE_UBM_CONTROLLER)
+    {
+        return 0U;
+    }
+
+    return SMBusTransaction_GetCommandFlags(command);
 }
 
 static uint8_t smbus_get_command_flags(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command)
@@ -447,7 +519,7 @@ static uint8_t smbus_get_command_flags(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t comma
     uint8_t flags;
     uint8_t user_flags;
 
-    flags = smbus_get_builtin_command_flags(command);
+    flags = smbus_get_builtin_command_flags(ctx, command);
     user_flags = 0U;
     if (SMBusSlave_UserGetCommandFlags(ctx->port_id, command, &user_flags) != 0U)
     {
@@ -460,13 +532,59 @@ static uint8_t smbus_get_command_flags(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t comma
 static uint8_t smbus_length_matches_protocol(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t flags, uint8_t length, uint8_t *protocol)
 {
     uint8_t count;
+    uint8_t profile_protocol;
+    uint8_t data_len;
 
     *protocol = (uint8_t)SMBUS_PROTOCOL_NONE;
+
+    if (length > 0U)
+    {
+        data_len = (uint8_t)(length - 1U);
+        profile_protocol = (uint8_t)SMBusTransaction_DetectProfileProtocol(&ctx->transaction,
+                                                                           ctx->rx_buffer[0],
+                                                                           data_len,
+                                                                           1U);
+        if (profile_protocol == (uint8_t)SMBUS_TRANSACTION_PROTOCOL_UBM_CONTROLLER_READ)
+        {
+            *protocol = (uint8_t)SMBUS_PROTOCOL_UBM_CONTROLLER_READ;
+            return 1U;
+        }
+
+        profile_protocol = (uint8_t)SMBusTransaction_DetectProfileProtocol(&ctx->transaction,
+                                                                           ctx->rx_buffer[0],
+                                                                           data_len,
+                                                                           0U);
+        if (profile_protocol == (uint8_t)SMBUS_TRANSACTION_PROTOCOL_UBM_CONTROLLER_WRITE)
+        {
+            *protocol = (uint8_t)SMBUS_PROTOCOL_UBM_CONTROLLER_WRITE;
+            return 1U;
+        }
+    }
+
+    if ((length == 3U) && ((flags & SMBUS_SLAVE_COMMAND_FLAG_PROCESS_CALL) != 0U))
+    {
+        *protocol = (uint8_t)SMBUS_PROTOCOL_PROCESS_CALL;
+        return 1U;
+    }
+
+    if ((length >= 2U) &&
+        (SMBusTransaction_IsBlockWriteReadProcessCallCommand(ctx->rx_buffer[0]) != 0U))
+    {
+        count = ctx->rx_buffer[1];
+        if ((count <= SMBUS_SLAVE_MAX_BLOCK_SIZE) &&
+            (length == (uint8_t)(count + 2U)))
+        {
+            *protocol = (uint8_t)SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL;
+            return 1U;
+        }
+    }
 
     if ((length == 1U) &&
         ((flags & (SMBUS_SLAVE_COMMAND_FLAG_READ_BYTE |
                    SMBUS_SLAVE_COMMAND_FLAG_READ_WORD |
-                   SMBUS_SLAVE_COMMAND_FLAG_BLOCK_READ)) != 0U))
+                   SMBUS_SLAVE_COMMAND_FLAG_BLOCK_READ)) != 0U) &&
+        (SMBusTransaction_IsProcessCallCommand(ctx->rx_buffer[0]) == 0U) &&
+        (SMBusTransaction_IsBlockWriteReadProcessCallCommand(ctx->rx_buffer[0]) == 0U))
     {
         *protocol = (uint8_t)SMBUS_PROTOCOL_READ;
         return 1U;
@@ -510,7 +628,7 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
                                              uint8_t *pec_present,
                                              uint8_t *pec_valid)
 {
-#if PMBUS_ENABLE_PEC
+#if SMBUS_ENABLE_PEC
     uint8_t candidate_length;
     uint8_t protocol;
     uint8_t protocol_no_pec;
@@ -524,10 +642,16 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
     *pec_present = 0U;
     *pec_valid = 1U;
 
-#if PMBUS_ENABLE_PEC
+    if (SMBusTransaction_UsesSmbusPec(&ctx->transaction) == 0U)
+    {
+        flags = flags;
+        return 1U;
+    }
+
+#if SMBUS_ENABLE_PEC
     if (ctx->rx_length <= 1U)
     {
-#if (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED)
+#if (SMBUS_PEC_POLICY == SMBUS_PEC_POLICY_REQUIRED)
         if (smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol) != 0U)
         {
             if (protocol != (uint8_t)SMBUS_PROTOCOL_READ)
@@ -554,7 +678,7 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
 
         protocol_no_pec = (uint8_t)SMBUS_PROTOCOL_NONE;
         if ((smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol_no_pec) == 0U) ||
-            ((PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED) &&
+            ((SMBUS_PEC_POLICY == SMBUS_PEC_POLICY_REQUIRED) &&
              (protocol_no_pec != (uint8_t)SMBUS_PROTOCOL_READ)))
         {
             *effective_length = candidate_length;
@@ -564,7 +688,7 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
         }
     }
 
-#if (PMBUS_PEC_POLICY == PMBUS_PEC_POLICY_REQUIRED)
+#if (SMBUS_PEC_POLICY == SMBUS_PEC_POLICY_REQUIRED)
     if (smbus_length_matches_protocol(ctx, flags, ctx->rx_length, &protocol) != 0U)
     {
         if (protocol != (uint8_t)SMBUS_PROTOCOL_READ)
@@ -579,63 +703,6 @@ static uint8_t smbus_select_effective_length(SMBUS_SLAVE_CONTEXT_T *ctx,
     return 1U;
 }
 
-static uint8_t smbus_builtin_read_byte(uint8_t command, uint8_t *value)
-{
-    if (command == SMBUS_SLAVE_PMBUS_REVISION)
-    {
-        *value = 0x33U;
-        return 1U;
-    }
-
-    return 0U;
-}
-
-static uint8_t smbus_copy_block_string(const char *text, uint8_t *data, uint8_t *length)
-{
-    uint8_t copy_length;
-    uint8_t index;
-
-    copy_length = (uint8_t)strlen(text);
-    if (copy_length > SMBUS_SLAVE_MAX_BLOCK_SIZE)
-    {
-        copy_length = SMBUS_SLAVE_MAX_BLOCK_SIZE;
-    }
-
-    for (index = 0U; index < copy_length; index++)
-    {
-        data[index] = (uint8_t)text[index];
-    }
-
-    *length = copy_length;
-    return 1U;
-}
-
-static uint8_t smbus_builtin_block_read(uint8_t command, uint8_t *data, uint8_t *length)
-{
-    if (command == SMBUS_SLAVE_PMBUS_MFR_ID)
-    {
-        return smbus_copy_block_string(g_smbus_mfr_id, data, length);
-    }
-
-    if (command == SMBUS_SLAVE_PMBUS_MFR_MODEL)
-    {
-        return smbus_copy_block_string(g_smbus_mfr_model, data, length);
-    }
-
-    return 0U;
-}
-
-static uint8_t smbus_builtin_send_byte(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command)
-{
-    if (command == SMBUS_SLAVE_PMBUS_CLEAR_FAULTS)
-    {
-        ctx->status_word = 0U;
-        return 1U;
-    }
-
-    return 0U;
-}
-
 static void smbus_prepare_error_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t command, uint8_t status)
 {
     ctx->status_word = (uint16_t)(ctx->status_word | SMBUS_STATUS_WORD_CML);
@@ -643,6 +710,92 @@ static void smbus_prepare_error_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t com
     ctx->tx_length = 1U;
     ctx->tx_index = 0U;
     smbus_set_event(ctx, SMBUS_EVENT_UNSUPPORTED, command, status);
+}
+
+static SMBUS_TRANSACTION_PROTOCOL_T smbus_get_transaction_protocol(uint8_t protocol, uint8_t flags)
+{
+    switch (protocol)
+    {
+        case SMBUS_PROTOCOL_READ:
+            if ((flags & SMBUS_SLAVE_COMMAND_FLAG_READ_BYTE) != 0U)
+            {
+                return SMBUS_TRANSACTION_PROTOCOL_READ_BYTE;
+            }
+            if ((flags & SMBUS_SLAVE_COMMAND_FLAG_READ_WORD) != 0U)
+            {
+                return SMBUS_TRANSACTION_PROTOCOL_READ_WORD;
+            }
+            if ((flags & SMBUS_SLAVE_COMMAND_FLAG_BLOCK_READ) != 0U)
+            {
+                return SMBUS_TRANSACTION_PROTOCOL_BLOCK_READ;
+            }
+            break;
+
+        case SMBUS_PROTOCOL_BLOCK_WRITE:
+            return SMBUS_TRANSACTION_PROTOCOL_BLOCK_WRITE;
+
+        case SMBUS_PROTOCOL_WRITE_BYTE:
+            return SMBUS_TRANSACTION_PROTOCOL_WRITE_BYTE;
+
+        case SMBUS_PROTOCOL_WRITE_WORD:
+            return SMBUS_TRANSACTION_PROTOCOL_WRITE_WORD;
+
+        case SMBUS_PROTOCOL_SEND_BYTE:
+            return SMBUS_TRANSACTION_PROTOCOL_SEND_BYTE;
+
+        case SMBUS_PROTOCOL_PROCESS_CALL:
+            return SMBUS_TRANSACTION_PROTOCOL_PROCESS_CALL;
+
+        case SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL:
+            return SMBUS_TRANSACTION_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL;
+
+        case SMBUS_PROTOCOL_UBM_CONTROLLER_READ:
+            return SMBUS_TRANSACTION_PROTOCOL_UBM_CONTROLLER_READ;
+
+        case SMBUS_PROTOCOL_UBM_CONTROLLER_WRITE:
+            return SMBUS_TRANSACTION_PROTOCOL_UBM_CONTROLLER_WRITE;
+
+        default:
+            break;
+    }
+
+    return SMBUS_TRANSACTION_PROTOCOL_UNKNOWN;
+}
+
+static void smbus_build_transaction(SMBUS_SLAVE_CONTEXT_T *ctx,
+                                    uint8_t command,
+                                    uint8_t protocol,
+                                    uint8_t flags,
+                                    uint8_t effective_length,
+                                    uint8_t repeated_start,
+                                    uint8_t pec_present,
+                                    uint8_t pec_valid,
+                                    SMBUS_TRANSACTION_T *transaction)
+{
+    uint8_t payload_length;
+    uint8_t index;
+
+    transaction->command = command;
+    transaction->address_7bit = ctx->address_7bit;
+    transaction->data_len = 0U;
+    transaction->repeated_start = repeated_start;
+    transaction->pec_present = pec_present;
+    transaction->pec_valid = pec_valid;
+    transaction->protocol = smbus_get_transaction_protocol(protocol, flags);
+
+    if (effective_length > 1U)
+    {
+        payload_length = (uint8_t)(effective_length - 1U);
+        if (payload_length > (SMBUS_SLAVE_MAX_BLOCK_SIZE + 1U))
+        {
+            payload_length = (uint8_t)(SMBUS_SLAVE_MAX_BLOCK_SIZE + 1U);
+        }
+        for (index = 0U; index < payload_length; index++)
+        {
+            transaction->payload[index] = ctx->rx_buffer[(uint8_t)(index + 1U)];
+        }
+        transaction->data_len = payload_length;
+    }
 }
 
 static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t status)
@@ -653,7 +806,11 @@ static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t stat
     uint8_t value;
     uint16_t word_value;
     uint8_t handled;
-#if PMBUS_DEBUG_ENABLE
+    uint8_t transaction_tx_length;
+    uint8_t read_protocol;
+    uint8_t data_len;
+    SMBUS_TRANSACTION_T transaction;
+#if SMBUS_DEBUG_ENABLE
     uint8_t debug_protocol;
 #endif
 
@@ -662,14 +819,52 @@ static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t stat
     ctx->tx_length = 0U;
     ctx->tx_index = 0U;
     handled = 0U;
-#if PMBUS_DEBUG_ENABLE
-    debug_protocol = smbus_debug_read_protocol_from_flags(flags);
+    transaction_tx_length = 0U;
+    read_protocol = (uint8_t)SMBUS_PROTOCOL_READ;
+    data_len = 0U;
+    if (ctx->command_length_without_pec > 0U)
+    {
+        data_len = (uint8_t)(ctx->command_length_without_pec - 1U);
+    }
+    if (SMBusTransaction_DetectProfileProtocol(&ctx->transaction, command, data_len, 1U) ==
+        SMBUS_TRANSACTION_PROTOCOL_UBM_CONTROLLER_READ)
+    {
+        read_protocol = (uint8_t)SMBUS_PROTOCOL_UBM_CONTROLLER_READ;
+    }
+    else if (SMBusTransaction_IsProcessCallCommand(command) != 0U)
+    {
+        read_protocol = (uint8_t)SMBUS_PROTOCOL_PROCESS_CALL;
+    }
+    else if (SMBusTransaction_IsBlockWriteReadProcessCallCommand(command) != 0U)
+    {
+        read_protocol = (uint8_t)SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL;
+    }
+    else
+    {
+        read_protocol = (uint8_t)SMBUS_PROTOCOL_READ;
+    }
+#if SMBUS_DEBUG_ENABLE
+    debug_protocol = smbus_debug_protocol_from_core(read_protocol, flags);
 #endif
 
-    if ((flags & SMBUS_SLAVE_COMMAND_FLAG_READ_BYTE) != 0U)
+    smbus_build_transaction(ctx,
+                            command,
+                            read_protocol,
+                            flags,
+                            ctx->command_length_without_pec,
+                            1U,
+                            0U,
+                            1U,
+                            &transaction);
+    handled = SMBusTransaction_Execute(&ctx->transaction, &transaction, ctx->tx_buffer, &transaction_tx_length);
+    if (handled != 0U)
     {
-        if ((smbus_builtin_read_byte(command, &value) != 0U) ||
-            (SMBusSlave_UserReadByte(ctx->port_id, command, &value) != 0U))
+        ctx->tx_length = transaction_tx_length;
+    }
+
+    if ((handled == 0U) && ((flags & SMBUS_SLAVE_COMMAND_FLAG_READ_BYTE) != 0U))
+    {
+        if (SMBusSlave_UserReadByte(ctx->port_id, command, &value) != 0U)
         {
             ctx->tx_buffer[0] = value;
             ctx->tx_length = 1U;
@@ -691,8 +886,7 @@ static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t stat
     if ((handled == 0U) && ((flags & SMBUS_SLAVE_COMMAND_FLAG_BLOCK_READ) != 0U))
     {
         length = 0U;
-        if ((smbus_builtin_block_read(command, &ctx->tx_buffer[1], &length) != 0U) ||
-            (SMBusSlave_UserBlockRead(ctx->port_id, command, &ctx->tx_buffer[1], &length) != 0U))
+        if (SMBusSlave_UserBlockRead(ctx->port_id, command, &ctx->tx_buffer[1], &length) != 0U)
         {
             if (length > SMBUS_SLAVE_MAX_BLOCK_SIZE)
             {
@@ -710,13 +904,60 @@ static void smbus_prepare_read_response(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t stat
     }
     else
     {
-#if PMBUS_ENABLE_PEC
-        smbus_append_read_pec(ctx, ctx->command_length_without_pec);
+#if SMBUS_ENABLE_PEC
+        if (SMBusTransaction_UsesSmbusPec(&ctx->transaction) != 0U)
+        {
+            smbus_append_read_pec(ctx, ctx->command_length_without_pec);
+        }
 #endif
     }
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     smbus_debug_capture_tx(ctx, command, debug_protocol);
+#endif
+}
+
+static void smbus_prepare_receive_byte_response(SMBUS_SLAVE_CONTEXT_T *ctx)
+{
+    uint8_t command;
+    uint8_t handled;
+    uint8_t transaction_tx_length;
+    SMBUS_TRANSACTION_T transaction;
+
+    command = SMBusTransaction_GetReceiveByteCommand(&ctx->transaction);
+    ctx->tx_length = 0U;
+    ctx->tx_index = 0U;
+    handled = 0U;
+    transaction_tx_length = 0U;
+
+    transaction.command = command;
+    transaction.address_7bit = ctx->address_7bit;
+    transaction.data_len = 0U;
+    transaction.repeated_start = 0U;
+    transaction.pec_present = 0U;
+    transaction.pec_valid = 1U;
+    transaction.protocol = SMBUS_TRANSACTION_PROTOCOL_RECEIVE_BYTE;
+
+    handled = SMBusTransaction_Execute(&ctx->transaction, &transaction, ctx->tx_buffer, &transaction_tx_length);
+    if (handled != 0U)
+    {
+        ctx->tx_length = transaction_tx_length;
+    }
+    else
+    {
+        ctx->tx_buffer[0] = 0x00U;
+        ctx->tx_length = 1U;
+    }
+
+#if SMBUS_ENABLE_PEC
+    if (SMBusTransaction_UsesSmbusPec(&ctx->transaction) != 0U)
+    {
+        smbus_append_receive_byte_pec(ctx);
+    }
+#endif
+
+#if SMBUS_DEBUG_ENABLE
+    smbus_debug_capture_tx(ctx, command, SMBUS_DEBUG_PROTOCOL_RECEIVE_BYTE);
 #endif
 }
 
@@ -730,14 +971,30 @@ static void smbus_execute_write_protocol(SMBUS_SLAVE_CONTEXT_T *ctx,
 {
     uint8_t handled;
     uint8_t count;
+    uint8_t transaction_tx_length;
     uint16_t word_value;
+    SMBUS_TRANSACTION_T transaction;
 
     handled = 0U;
+    transaction_tx_length = 0U;
+    smbus_build_transaction(ctx,
+                            command,
+                            protocol,
+                            smbus_get_command_flags(ctx, command),
+                            effective_length,
+                            0U,
+                            pec_present,
+                            pec_valid,
+                            &transaction);
+    handled = SMBusTransaction_Execute(&ctx->transaction, &transaction, ctx->tx_buffer, &transaction_tx_length);
+    if (handled != 0U)
+    {
+        ctx->tx_length = transaction_tx_length;
+    }
 
     switch (protocol)
     {
         case SMBUS_PROTOCOL_SEND_BYTE:
-            handled = smbus_builtin_send_byte(ctx, command);
             if (handled == 0U)
             {
                 handled = SMBusSlave_UserSendByte(ctx->port_id, command, pec_present, pec_valid);
@@ -745,25 +1002,34 @@ static void smbus_execute_write_protocol(SMBUS_SLAVE_CONTEXT_T *ctx,
             break;
 
         case SMBUS_PROTOCOL_WRITE_BYTE:
-            handled = SMBusSlave_UserWriteByte(ctx->port_id, command, ctx->rx_buffer[1], pec_present, pec_valid);
+            if (handled == 0U)
+            {
+                handled = SMBusSlave_UserWriteByte(ctx->port_id, command, ctx->rx_buffer[1], pec_present, pec_valid);
+            }
             break;
 
         case SMBUS_PROTOCOL_WRITE_WORD:
             word_value = ((uint16_t)ctx->rx_buffer[1]) |
                          ((uint16_t)ctx->rx_buffer[2] << 8);
-            handled = SMBusSlave_UserWriteWord(ctx->port_id, command, word_value, pec_present, pec_valid);
+            if (handled == 0U)
+            {
+                handled = SMBusSlave_UserWriteWord(ctx->port_id, command, word_value, pec_present, pec_valid);
+            }
             break;
 
         case SMBUS_PROTOCOL_BLOCK_WRITE:
             count = ctx->rx_buffer[1];
             if (effective_length == (uint8_t)(count + 2U))
             {
-                handled = SMBusSlave_UserBlockWrite(ctx->port_id,
-                                                    command,
-                                                    &ctx->rx_buffer[2],
-                                                    count,
-                                                    pec_present,
-                                                    pec_valid);
+                if (handled == 0U)
+                {
+                    handled = SMBusSlave_UserBlockWrite(ctx->port_id,
+                                                        command,
+                                                        &ctx->rx_buffer[2],
+                                                        count,
+                                                        pec_present,
+                                                        pec_valid);
+                }
             }
             break;
 
@@ -789,7 +1055,7 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
     uint8_t pec_present;
     uint8_t pec_valid;
     uint8_t protocol;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     uint8_t debug_payload_length;
     uint8_t debug_protocol;
     uint8_t debug_repeated_start;
@@ -804,7 +1070,7 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
     flags = smbus_get_command_flags(ctx, command);
     if (smbus_select_effective_length(ctx, flags, &effective_length, &pec_present, &pec_valid) == 0U)
     {
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
         debug_payload_length = 0U;
         if (effective_length > 0U)
         {
@@ -828,7 +1094,7 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
 
     if (smbus_length_matches_protocol(ctx, flags, effective_length, &protocol) == 0U)
     {
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
         debug_payload_length = 0U;
         if (effective_length > 0U)
         {
@@ -848,7 +1114,7 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
         return;
     }
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     debug_protocol = smbus_debug_protocol_from_core(protocol, flags);
     debug_payload_length = 0U;
     if (effective_length > 0U)
@@ -856,7 +1122,10 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
         debug_payload_length = (uint8_t)(effective_length - 1U);
     }
     debug_repeated_start = 0U;
-    if ((protocol == (uint8_t)SMBUS_PROTOCOL_READ) && (effective_length == 1U))
+    if (((protocol == (uint8_t)SMBUS_PROTOCOL_READ) && (effective_length == 1U)) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_PROCESS_CALL) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_UBM_CONTROLLER_READ))
     {
         debug_repeated_start = 1U;
     }
@@ -870,7 +1139,10 @@ static void smbus_process_stop_or_restart(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t st
                            pec_valid);
 #endif
 
-    if ((protocol == (uint8_t)SMBUS_PROTOCOL_READ) && (effective_length == 1U))
+    if (((protocol == (uint8_t)SMBUS_PROTOCOL_READ) && (effective_length == 1U)) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_PROCESS_CALL) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_BLOCK_WRITE_READ_PROCESS_CALL) ||
+        (protocol == (uint8_t)SMBUS_PROTOCOL_UBM_CONTROLLER_READ))
     {
         ctx->pending_read = 1U;
         ctx->command_length_without_pec = effective_length;
@@ -902,6 +1174,7 @@ void SMBusSlave_CoreInit(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t port_id, uint8_t ad
 {
     memset(ctx->rx_buffer, 0, sizeof(ctx->rx_buffer));
     memset(ctx->tx_buffer, 0, sizeof(ctx->tx_buffer));
+    SMBusTransaction_Init(&ctx->transaction);
 
     ctx->rx_length = 0U;
     ctx->tx_length = 0U;
@@ -912,9 +1185,13 @@ void SMBusSlave_CoreInit(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t port_id, uint8_t ad
     ctx->event_flags = 0U;
     ctx->last_event_command = 0U;
     ctx->last_event_status = 0U;
+    ctx->write_done_head = 0U;
+    ctx->write_done_tail = 0U;
+    ctx->write_done_count = 0U;
+    ctx->write_done_dropped = 0U;
     ctx->timeout_count = 0U;
     ctx->recover_pending = 0U;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     ctx->debug_rx_head = 0U;
     ctx->debug_rx_tail = 0U;
     ctx->debug_rx_count = 0U;
@@ -927,6 +1204,8 @@ void SMBusSlave_CoreInit(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t port_id, uint8_t ad
     memset(ctx->debug_tx_queue, 0, sizeof(ctx->debug_tx_queue));
 #endif
     ctx->status_word = 0U;
+    memset(ctx->write_done_command_queue, 0, sizeof(ctx->write_done_command_queue));
+    memset(ctx->write_done_status_queue, 0, sizeof(ctx->write_done_status_queue));
     ctx->port_id = port_id;
     ctx->address_7bit = address_7bit;
     ctx->port_name = port_name;
@@ -985,9 +1264,7 @@ uint8_t SMBusSlave_CoreOnAddressRead(SMBUS_SLAVE_CONTEXT_T *ctx, uint8_t status)
     }
     else
     {
-        ctx->tx_buffer[0] = 0x00U;
-        ctx->tx_length = 1U;
-        ctx->tx_index = 0U;
+        smbus_prepare_receive_byte_response(ctx);
     }
 
     smbus_set_ack(ctx);
@@ -1040,20 +1317,43 @@ uint8_t SMBusSlave_CoreGetAck(const SMBUS_SLAVE_CONTEXT_T *ctx)
 
 void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNAPSHOT_T *snapshot)
 {
-#if PMBUS_DEBUG_ENABLE
+    uint8_t next_tail;
+#if SMBUS_DEBUG_ENABLE
     SMBUS_DEBUG_RX_FRAME_T *rx_record;
     SMBUS_DEBUG_TX_FRAME_T *tx_record;
     uint8_t index;
-    uint8_t next_tail;
 #endif
 
     snapshot->events = ctx->event_flags;
     snapshot->command = ctx->last_event_command;
     snapshot->status = ctx->last_event_status;
+    snapshot->write_done_command = 0U;
+    snapshot->write_done_status = 0U;
+    snapshot->write_done_dropped = ctx->write_done_dropped;
+    ctx->write_done_dropped = 0U;
+    if (ctx->write_done_count != 0U)
+    {
+        snapshot->write_done_command = ctx->write_done_command_queue[ctx->write_done_tail];
+        snapshot->write_done_status = ctx->write_done_status_queue[ctx->write_done_tail];
+
+        next_tail = (uint8_t)(ctx->write_done_tail + 1U);
+        if (next_tail >= SMBUS_WRITE_DONE_QUEUE_SIZE)
+        {
+            next_tail = 0U;
+        }
+        ctx->write_done_tail = next_tail;
+        ctx->write_done_count = (uint8_t)(ctx->write_done_count - 1U);
+        snapshot->events = (uint8_t)(snapshot->events | SMBUS_EVENT_WRITE_DONE);
+    }
+    else
+    {
+        snapshot->events = (uint8_t)(snapshot->events & ((uint8_t)~SMBUS_EVENT_WRITE_DONE));
+    }
     snapshot->timeout_count = ctx->timeout_count;
     snapshot->recover_pending = ctx->recover_pending;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     snapshot->debug_rx_command = 0U;
+    snapshot->debug_rx_profile = SMBUS_SLAVE_COMMAND_PROFILE_GENERIC;
     snapshot->debug_rx_raw_length = 0U;
     snapshot->debug_rx_payload_length = 0U;
     snapshot->debug_rx_protocol = 0U;
@@ -1066,6 +1366,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
     {
         rx_record = &ctx->debug_rx_queue[ctx->debug_rx_tail];
         snapshot->debug_rx_command = rx_record->command;
+        snapshot->debug_rx_profile = rx_record->profile;
         snapshot->debug_rx_raw_length = rx_record->raw_length;
         if (snapshot->debug_rx_raw_length > SMBUS_SLAVE_RX_BUFFER_SIZE)
         {
@@ -1082,7 +1383,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
         }
 
         next_tail = (uint8_t)(ctx->debug_rx_tail + 1U);
-        if (next_tail >= PMBUS_DEBUG_FRAME_QUEUE_SIZE)
+        if (next_tail >= SMBUS_DEBUG_FRAME_QUEUE_SIZE)
         {
             next_tail = 0U;
         }
@@ -1096,6 +1397,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
     }
 
     snapshot->debug_tx_command = 0U;
+    snapshot->debug_tx_profile = SMBUS_SLAVE_COMMAND_PROFILE_GENERIC;
     snapshot->debug_tx_protocol = 0U;
     snapshot->debug_tx_length = 0U;
     snapshot->debug_tx_dropped = ctx->debug_tx_dropped;
@@ -1104,6 +1406,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
     {
         tx_record = &ctx->debug_tx_queue[ctx->debug_tx_tail];
         snapshot->debug_tx_command = tx_record->command;
+        snapshot->debug_tx_profile = tx_record->profile;
         snapshot->debug_tx_protocol = tx_record->protocol;
         snapshot->debug_tx_length = tx_record->length;
         if (snapshot->debug_tx_length > SMBUS_SLAVE_TX_BUFFER_SIZE)
@@ -1116,7 +1419,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
         }
 
         next_tail = (uint8_t)(ctx->debug_tx_tail + 1U);
-        if (next_tail >= PMBUS_DEBUG_TX_QUEUE_SIZE)
+        if (next_tail >= SMBUS_DEBUG_TX_QUEUE_SIZE)
         {
             next_tail = 0U;
         }
@@ -1130,7 +1433,7 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
     }
 #endif
     ctx->event_flags = 0U;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     if (ctx->debug_rx_count != 0U)
     {
         ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_RX);
@@ -1140,6 +1443,10 @@ void SMBusSlave_CoreTakeEvents(SMBUS_SLAVE_CONTEXT_T *ctx, SMBUS_SLAVE_EVENT_SNA
         ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_DEBUG_TX);
     }
 #endif
+    if (ctx->write_done_count != 0U)
+    {
+        ctx->event_flags = (uint8_t)(ctx->event_flags | SMBUS_EVENT_WRITE_DONE);
+    }
     ctx->recover_pending = 0U;
 }
 
@@ -1151,41 +1458,41 @@ void SMBusSlave_CoreSetRecovered(SMBUS_SLAVE_CONTEXT_T *ctx)
 void SMBusSlave_CorePrintEvents(uint8_t port_id, const SMBUS_SLAVE_EVENT_SNAPSHOT_T *snapshot)
 {
     const char *port_name;
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     const char *command_name;
     const char *protocol_name;
 #endif
 
     port_name = smbus_get_port_name_from_id(port_id);
 
-#if PMBUS_DEBUG_ENABLE && PMBUS_DEBUG_PRINT_RX_FRAME
+#if SMBUS_DEBUG_ENABLE && SMBUS_DEBUG_PRINT_RX_FRAME
     if ((snapshot->events & SMBUS_EVENT_DEBUG_RX) != 0U)
     {
-        command_name = smbus_debug_get_command_name(snapshot->debug_rx_command);
+        command_name = smbus_debug_get_command_name(snapshot->debug_rx_profile, snapshot->debug_rx_command);
         protocol_name = smbus_debug_get_protocol_name(snapshot->debug_rx_protocol);
-        printf("PMBus RX cmd=0x%02X ", (unsigned int)snapshot->debug_rx_command);
+        printf("SMBus RX cmd=0x%02X ", (unsigned int)snapshot->debug_rx_command);
         printf("(%s) ", command_name);
         printf("bus=%s\r\n", port_name);
-        printf("PMBus RX info raw=%u payload=%u proto=%u\r\n",
+        printf("SMBus RX info raw=%u payload=%u proto=%u\r\n",
                (unsigned int)snapshot->debug_rx_raw_length,
                (unsigned int)snapshot->debug_rx_payload_length,
                (unsigned int)snapshot->debug_rx_protocol);
-        printf("PMBus RX pec rs=%u pec=%u valid=%u\r\n",
+        printf("SMBus RX pec rs=%u pec=%u valid=%u\r\n",
                (unsigned int)snapshot->debug_rx_repeated_start,
                (unsigned int)snapshot->debug_rx_pec_present,
                (unsigned int)snapshot->debug_rx_pec_valid);
-        printf("PMBus RX raw=");
+        printf("SMBus RX raw=");
         smbus_debug_print_raw_bytes(snapshot->debug_rx_raw, snapshot->debug_rx_raw_length);
         printf(" proto=%s bus=%s\r\n", protocol_name, port_name);
     }
 #endif
 
-#if PMBUS_DEBUG_ENABLE && PMBUS_DEBUG_PRINT_TX_READY
+#if SMBUS_DEBUG_ENABLE && SMBUS_DEBUG_PRINT_TX_READY
     if ((snapshot->events & SMBUS_EVENT_DEBUG_TX) != 0U)
     {
-        command_name = smbus_debug_get_command_name(snapshot->debug_tx_command);
+        command_name = smbus_debug_get_command_name(snapshot->debug_tx_profile, snapshot->debug_tx_command);
         protocol_name = smbus_debug_get_protocol_name(snapshot->debug_tx_protocol);
-        printf("PMBus TX cmd=0x%02X ", (unsigned int)snapshot->debug_tx_command);
+        printf("SMBus TX cmd=0x%02X ", (unsigned int)snapshot->debug_tx_command);
         printf("(%s) ", command_name);
         printf("proto=%u ", (unsigned int)snapshot->debug_tx_protocol);
         printf("(%s) ", protocol_name);
@@ -1196,7 +1503,7 @@ void SMBusSlave_CorePrintEvents(uint8_t port_id, const SMBUS_SLAVE_EVENT_SNAPSHO
     }
 #endif
 
-#if PMBUS_DEBUG_ENABLE
+#if SMBUS_DEBUG_ENABLE
     if (snapshot->debug_rx_dropped != 0U)
     {
         printf("[SMBus %s] RX debug log dropped=%u\r\n",
@@ -1210,6 +1517,12 @@ void SMBusSlave_CorePrintEvents(uint8_t port_id, const SMBUS_SLAVE_EVENT_SNAPSHO
                (unsigned int)snapshot->debug_tx_dropped);
     }
 #endif
+    if (snapshot->write_done_dropped != 0U)
+    {
+        printf("[SMBus %s] write done log dropped=%u\r\n",
+               port_name,
+               (unsigned int)snapshot->write_done_dropped);
+    }
 
     if ((snapshot->events & SMBUS_EVENT_TIMEOUT) != 0U)
     {
@@ -1242,7 +1555,7 @@ void SMBusSlave_CorePrintEvents(uint8_t port_id, const SMBUS_SLAVE_EVENT_SNAPSHO
     {
         printf("[SMBus %s] write done cmd=0x%02X\r\n",
                port_name,
-               (unsigned int)snapshot->command);
+               (unsigned int)snapshot->write_done_command);
     }
     if ((snapshot->events & SMBUS_EVENT_RECOVERED) != 0U)
     {

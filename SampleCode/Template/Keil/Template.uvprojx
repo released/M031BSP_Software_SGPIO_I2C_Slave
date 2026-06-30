@@ -18,12 +18,12 @@
           <Vendor>Nuvoton</Vendor>
           <PackID>Nuvoton.NuMicroM0_DFP.1.0.2</PackID>
           <PackURL>https://github.com/OpenNuvoton/cmsis-packs/raw/master/Nuvoton_DFP/</PackURL>
-          <Cpu>IRAM(0x20000000-0x20003FFF) IROM(0-0x1FFFF) CLOCK(48000000) CPUTYPE("Cortex-M0")</Cpu>
+          <Cpu>IRAM(0x20000000,0x4000) IROM(0x00000000,0x20000) IROM2(0x00100000,0x1000) IROM3(0x00200000,0x200) CPUTYPE("Cortex-M0") CLOCK(12000000)</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
-          <StartupFile>undefined</StartupFile>
-          <FlashDriverDll></FlashDriverDll>
+          <StartupFile></StartupFile>
+          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC2000 -FN3 -FF0M031_AP_128 -FS00 -FL020000 -FF1M031_LD_4 -FS1100000 -FL11000 -FF2M031_SP_0_5 -FS2200000 -FL2200 -FP0($$Device:M032SE3AE$Flash\M031_AP_128.FLM) -FP1($$Device:M032SE3AE$Flash\M031_LD_4.FLM) -FP2($$Device:M032SE3AE$Flash\M031_SP_0_5.FLM))</FlashDriverDll>
           <DeviceId>0</DeviceId>
-          <RegisterFile></RegisterFile>
+          <RegisterFile>$$Device:M032SE3AE$Device\M031\Include\M031Series.h</RegisterFile>
           <MemoryEnv></MemoryEnv>
           <Cmp></Cmp>
           <Asm></Asm>
@@ -33,7 +33,7 @@
           <SLE66CMisc></SLE66CMisc>
           <SLE66AMisc></SLE66AMisc>
           <SLE66LinkerMisc></SLE66LinkerMisc>
-          <SFDFile>SFD\Nuvoton\M031AE_v1.SFR</SFDFile>
+          <SFDFile>$$Device:M032SE3AE$SVD\Nuvoton\M031AE_v1.svd</SFDFile>
           <bCustSvd>0</bCustSvd>
           <UseEnv>0</UseEnv>
           <BinPath></BinPath>
@@ -110,13 +110,13 @@
         </CommonProperty>
         <DllOption>
           <SimDllName>SARMCM3.DLL</SimDllName>
-          <SimDllArguments></SimDllArguments>
+          <SimDllArguments>  </SimDllArguments>
           <SimDlgDll>DARMCM1.DLL</SimDlgDll>
-          <SimDlgDllArguments></SimDlgDllArguments>
+          <SimDlgDllArguments>-pCM0</SimDlgDllArguments>
           <TargetDllName>SARMCM3.DLL</TargetDllName>
-          <TargetDllArguments></TargetDllArguments>
+          <TargetDllArguments> </TargetDllArguments>
           <TargetDlgDll>TARMCM1.DLL</TargetDlgDll>
-          <TargetDlgDllArguments></TargetDlgDllArguments>
+          <TargetDlgDllArguments>-pCM0</TargetDlgDllArguments>
         </DllOption>
         <DebugOption>
           <OPTHX>
@@ -134,10 +134,10 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>4107</DriverSelection>
+            <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
-          <Flash2>Bin\Nu_Link.dll</Flash2>
+          <Flash2>BIN\UL2CM3.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
@@ -188,14 +188,14 @@
             <RvdsCdeCp>0</RvdsCdeCp>
             <nBranchProt>0</nBranchProt>
             <hadIRAM2>0</hadIRAM2>
-            <hadIROM2>0</hadIROM2>
+            <hadIROM2>1</hadIROM2>
             <StupSel>8</StupSel>
             <useUlib>1</useUlib>
             <EndSel>0</EndSel>
             <uLtcg>0</uLtcg>
             <nSecure>0</nSecure>
-            <RoSelD>3</RoSelD>
-            <RwSelD>5</RwSelD>
+            <RoSelD>4</RoSelD>
+            <RwSelD>3</RwSelD>
             <CodeSel>0</CodeSel>
             <OptFeed>0</OptFeed>
             <NoZi1>0</NoZi1>
@@ -206,12 +206,12 @@
             <Ro1Chk>0</Ro1Chk>
             <Ro2Chk>0</Ro2Chk>
             <Ro3Chk>0</Ro3Chk>
-            <Ir1Chk>0</Ir1Chk>
+            <Ir1Chk>1</Ir1Chk>
             <Ir2Chk>0</Ir2Chk>
             <Ra1Chk>0</Ra1Chk>
             <Ra2Chk>0</Ra2Chk>
             <Ra3Chk>0</Ra3Chk>
-            <Im1Chk>0</Im1Chk>
+            <Im1Chk>1</Im1Chk>
             <Im2Chk>0</Im2Chk>
             <OnChipMemories>
               <Ocm1>
@@ -281,8 +281,8 @@
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
-                <StartAddress>0x0</StartAddress>
-                <Size>0x0</Size>
+                <StartAddress>0x100000</StartAddress>
+                <Size>0x1000</Size>
               </OCR_RVCT5>
               <OCR_RVCT6>
                 <Type>0</Type>
@@ -425,6 +425,11 @@
               <FilePath>..\..\..\Library\StdDriver\src\i2c.c</FilePath>
             </File>
             <File>
+              <FileName>adc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Library\StdDriver\src\adc.c</FilePath>
+            </File>
+            <File>
               <FileName>usci_i2c.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Library\StdDriver\src\usci_i2c.c</FilePath>
@@ -438,6 +443,11 @@
               <FileName>sys.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Library\StdDriver\src\sys.c</FilePath>
+            </File>
+            <File>
+              <FileName>fmc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Library\StdDriver\src\fmc.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -460,14 +470,34 @@
               <FilePath>..\timer_service.c</FilePath>
             </File>
             <File>
+              <FileName>boot_matrix.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\boot_matrix.c</FilePath>
+            </File>
+            <File>
               <FileName>sgpio_slave.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\sgpio_slave.c</FilePath>
             </File>
             <File>
+              <FileName>sgpio_led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\sgpio_led.c</FilePath>
+            </File>
+            <File>
               <FileName>smbus_slave.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\smbus_slave.c</FilePath>
+            </File>
+            <File>
+              <FileName>smbus_transaction.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\smbus_transaction.c</FilePath>
+            </File>
+            <File>
+              <FileName>smbus_ubm_controller.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\smbus_ubm_controller.c</FilePath>
             </File>
             <File>
               <FileName>smbus_slave_i2c0.c</FileName>

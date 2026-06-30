@@ -1,11 +1,12 @@
 /*_____ I N C L U D E S ____________________________________________________*/
 #include <stdio.h>
-#include <string.h>
 #include "NuMicro.h"
 
 #include "misc_config.h"
 
 #include "timer_service.h"
+#include "boot_matrix.h"
+#include "sgpio_led.h"
 #include "sgpio_slave.h"
 #include "smbus_slave.h"
 /*_____ D E C L A R A T I O N S ____________________________________________*/
@@ -160,7 +161,6 @@ void Task_1000ms_Callback(void *user_data)
 	// static uint32_t LOG1 = 0;
 
     // printf("%s(timer) : %4d\r\n",__FUNCTION__,LOG1++);
-    // PB14 ^= 1;
 }
 
 void Task_100ms_Callback(void *user_data)
@@ -331,15 +331,15 @@ void TMR1_IRQHandler(void)
 		// if ((get_tick() % 50) == 0)
 		// {
 
-		// }	
+        // }
 
         TimerService_Tick1ms();
         SMBusSlave_I2C0_Timer1ms();
-        SMBusSlave_USCI0_Timer1ms();
 
         if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
         {
             SMBusSlave_I2C1_Timer1ms();
+            SMBusSlave_USCI0_Timer1ms();
         }
     }
 }
@@ -360,15 +360,16 @@ void loop(void)
     TimerService_Dispatch();
 
     SMBusSlave_I2C0_Process();
-    SMBusSlave_USCI0_Process();
 
     if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
     {
         SMBusSlave_I2C1_Process();
+        SMBusSlave_USCI0_Process();
     }
     else
     {
         SGPIO_Process();
+        SGPIO_LED_Process();
     }
 
     // application
@@ -425,8 +426,18 @@ void UART02_IRQHandler(void)
     }	
 }
 
+static void UART0_ConfigPins(void)
+{
+    SYS_UnlockReg();
+    GPIO_ENABLE_DIGITAL_PATH(PA, (BIT14 | BIT15));
+    SYS->GPA_MFPH = (SYS->GPA_MFPH & ~(SYS_GPA_MFPH_PA14MFP_Msk | SYS_GPA_MFPH_PA15MFP_Msk)) |
+                    (SYS_GPA_MFPH_PA14MFP_UART0_TXD | SYS_GPA_MFPH_PA15MFP_UART0_RXD);
+    SYS_LockReg();
+}
+
 void UART0_Init(void)
 {
+    UART0_ConfigPins();
     SYS_ResetModule(UART0_RST);
 
     /* Configure UART0 and set UART0 baud rate */
@@ -459,13 +470,9 @@ void UART0_Init(void)
 void GPIO_Init (void)
 {
     SYS_UnlockReg();
-    // SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB14MFP_Msk)) | (SYS_GPB_MFPH_PB14MFP_GPIO);
-    // SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB15MFP_Msk)) | (SYS_GPB_MFPH_PB15MFP_GPIO);
     SYS->GPF_MFPH = (SYS->GPF_MFPH & ~(SYS_GPF_MFPH_PF14MFP_Msk));
     SYS_LockReg();
 
-    // GPIO_SetMode(PB, BIT14, GPIO_MODE_OUTPUT);
-    // GPIO_SetMode(PB, BIT15, GPIO_MODE_OUTPUT);	
     GPIO_SetMode(PF, BIT14, GPIO_MODE_INPUT);
 
 }
@@ -503,10 +510,9 @@ void SYS_Init(void)
 	/***********************************/
     CLK_EnableModuleClock(UART0_MODULE);
     CLK_SetModuleClock(UART0_MODULE, CLK_CLKSEL1_UART0SEL_HIRC, CLK_CLKDIV0_UART0(1));
-	
-    /* Set PB multi-function pins for UART0 RXD=PB.12 and TXD=PB.13 */
-    SYS->GPB_MFPH = (SYS->GPB_MFPH & ~(SYS_GPB_MFPH_PB12MFP_Msk | SYS_GPB_MFPH_PB13MFP_Msk)) |
-                    (SYS_GPB_MFPH_PB12MFP_UART0_RXD | SYS_GPB_MFPH_PB13MFP_UART0_TXD);
+
+    CLK_EnableModuleClock(ADC_MODULE);
+    CLK_SetModuleClock(ADC_MODULE, CLK_CLKSEL2_ADCSEL_HIRC, CLK_CLKDIV0_ADC(32));
 
 	/***********************************/
    /* Update System Core Clock */
@@ -530,6 +536,7 @@ int main()
 
 	GPIO_Init();
 	UART0_Init();
+    BootMatrix_Init();
 	TIMER1_Init();
     check_reset_source();
 
@@ -546,32 +553,48 @@ int main()
     printf("BP_TYPE(PF14)=%u -> %s profile\r\n",
            (unsigned int)g_boot_profile,
            BootProfile_Name(g_boot_profile));
+    BootMatrix_Print();
 
     /*
-     * Shared SGPIO/I2C1 pins:
-     *   SCLOCK    : PA.2 / I2C1_SDA
-     *   SLOAD     : PA.3 / I2C1_SCL
+     * SGPIO pins when BP_TYPE is low:
+     *   SCLOCK    : PA.2
+     *   SLOAD     : PA.3
      *   SDATA OUT : PA.0
+     *
+     * Always-on SMBus pins:
+     *   I2C0 SDA  : PC.0
+     *   I2C0 SCL  : PC.1
+     *
+     * SMBus pins when BP_TYPE is high:
+     *   I2C1 SDA  : PA.13
+     *   I2C1 SCL  : PA.12
+     *   USCI0 CLK : PD.0
+     *   USCI0 DAT0: PD.1
      */
+    SMBusSlave_I2C0_Init();
+
     if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
     {
+        BootMatrix_ApplySmbusConfig();
         SMBusSlave_I2C1_Init();
+        SMBusSlave_USCI0_Init();
     }
     else
     {
+        SGPIO_LED_SetGroupSelect(g_boot_matrix.sgpio_group_id);
+        SGPIO_LED_Init();
+        SGPIO_SetFrameDecodedCallback(SGPIO_LED_OnFrameDecoded);
         SGPIO_Init();
     }
-
-    /*
-     * Dedicated SMBus slave pins:
-     *   PC.0 / I2C0_SDA
-     *   PC.1 / I2C0_SCL
-     *   PD.0 / USCI0_CLK
-     *   PD.1 / USCI0_DAT0
-     */
-    SMBusSlave_I2C0_Init();
-    SMBusSlave_USCI0_Init();
-    printf("SMBus commands: PMBUS_REVISION, MFR_ID, MFR_MODEL, CLEAR_FAULTS\r\n");
+    if ((g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE) &&
+        (g_boot_matrix.smbus_role_id == BOOT_SMBUS_ROLE_UBM))
+    {
+        printf("SMBus role: I2C1/USCI0 UBM controller, I2C0 Generic SMBus, UBM checksum seed 0xA5\r\n");
+    }
+    else
+    {
+        printf("SMBus role: Generic SMBus commands 0x10..0x61 examples, %s\r\n", SMBUS_PEC_POLICY_TEXT);
+    }
 
     /* Got no where to go, just loop forever */
     while(1)

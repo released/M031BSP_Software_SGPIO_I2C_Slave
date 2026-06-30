@@ -2,7 +2,7 @@
 
 M031 boot-selectable SGPIO target/slave and 2-wire SMBus slave example.
 
-Update: `2026/06/28`
+Update: `2026/06/29`
 
 ## Overview
 
@@ -10,25 +10,26 @@ Update: `2026/06/28`
 - Board: `M032 EVB or compatible M031/M032 target board`
 - Toolchain: `Keil uVision5`
 - Purpose:
-  - Read `BP_TYPE` on `PF14` at boot to select SGPIO or 2-wire SMBus slave profile.
+  - Read `BP_TYPE` on `PF14` at boot to select the SGPIO path or the additional 2-wire SMBus slave path.
   - Capture SGPIO frames from an external SGPIO initiator/master when `BP_TYPE=0`.
   - Decode `SLOAD L0..L3 Raw` and `SDataOut` per-slot `ACT / LOCATE / FAIL` bits.
-  - Respond as an I2C1 SMBus slave on PA2/PA3 when `BP_TYPE=1`.
-  - Always expose two additional SMBus slave ports on I2C0 and USCI0.
-  - Keep SGPIO and SMBus processing interrupt-driven and non-blocking so the heartbeat LED and main loop keep running.
+  - Enable I2C0 SMBus slave on every boot.
+  - Enable I2C1 and USCI0 SMBus slave ports only when `BP_TYPE=1`.
+  - Keep PA2/PA3 dedicated to SGPIO mode; I2C1 SMBus uses PA13/PA12.
+  - Keep SGPIO and SMBus processing interrupt-driven and non-blocking so the debug heartbeat output and main loop keep running.
 
 ## Hardware
 
 - Debug UART:
   - `UART0`
-  - `PB12 = UART0_RXD`, `PB13 = UART0_TXD`
+  - `PA15 = UART0_RXD`, `PA14 = UART0_TXD`
   - Terminal setting: `115200 8N1`
 - Debug heartbeat output:
   - Toggles from the timer service; if it stops, profile handling is blocking the main loop or IRQ path.
 - Main peripheral(s):
   - SGPIO target/slave receive path implemented by a shared GPIO port ISR.
   - SMBus slave paths implemented by I2C0/I2C1/UI2C0 ISR handlers with software PEC.
-  - `PF14` boot strap selects which profile owns PA2/PA3 for this boot.
+  - `BP_TYPE` selects whether SGPIO is active or I2C1/USCI0 SMBus slaves are active for this boot.
 - Test equipment:
   - External SGPIO initiator/master.
   - SMBus/I2C master.
@@ -38,18 +39,18 @@ Update: `2026/06/28`
 
 | Function | Pin | Direction | Note |
 | --- | --- | --- | --- |
-| `UART0_RXD` | `PB12` | Input | Debug UART RX |
-| `UART0_TXD` | `PB13` | Output | Debug UART TX |
+| `UART0_RXD` | `PA15` | Input | Debug UART RX |
+| `UART0_TXD` | `PA14` | Output | Debug UART TX |
 | `BP_TYPE` | `PF14` | Input | `0=SGPIO`, `1=2 Wire SMBus slave`; sampled once at boot |
 | `SGPIO_SLOAD` | `PA3` | Input | SGPIO profile only; sampled by `SCLK` |
 | `SGPIO_SDATAOUT` | `PA0` | Input | Sampled by `SCLK`; data IRQ is disabled |
 | `SGPIO_SCLK` | `PA2` | Input | SGPIO profile only; shared GPIO port ISR rising-edge sampler |
-| `SMBus_I2C1_SDA` | `PA2` | Open-drain | `BP_TYPE=1` only; `I2C1_SDA`, addr `0x5A` |
-| `SMBus_I2C1_SCL` | `PA3` | Open-drain | `BP_TYPE=1` only; `I2C1_SCL`, addr `0x5A` |
-| `SMBus_I2C0_SDA` | `PC0` | Open-drain | Always initialized; addr `0x6A` |
-| `SMBus_I2C0_SCL` | `PC1` | Open-drain | Always initialized; addr `0x6A` |
-| `SMBus_USCI0_CLK` | `PD0` | Open-drain | Always initialized as USCI0 I2C SCL; addr `0x4A` |
-| `SMBus_USCI0_DAT0` | `PD1` | Open-drain | Always initialized as USCI0 I2C SDA; addr `0x4A` |
+| `SMBus_I2C1_SDA` | `PA13` | Open-drain | SMBus profile only; `I2C1_SDA` |
+| `SMBus_I2C1_SCL` | `PA12` | Open-drain | SMBus profile only; `I2C1_SCL` |
+| `SMBus_I2C0_SDA` | `PC0` | Open-drain | Always initialized; fixed addr `0x6A` |
+| `SMBus_I2C0_SCL` | `PC1` | Open-drain | Always initialized; fixed addr `0x6A` |
+| `SMBus_USCI0_CLK` | `PD0` | Open-drain | SMBus profile only; USCI0 I2C SCL |
+| `SMBus_USCI0_DAT0` | `PD1` | Open-drain | SMBus profile only; USCI0 I2C SDA |
 | `GND` | `GND` | Ground | Common ground with SGPIO initiator |
 
 External SGPIO wiring:
@@ -65,12 +66,12 @@ External SMBus wiring:
 
 | SMBus port | SMBus signal | M032 pin | Address |
 | --- | --- | --- | --- |
-| `I2C1` | `SDA` | `PA2 / I2C1_SDA` | `0x5A` |
-| `I2C1` | `SCL` | `PA3 / I2C1_SCL` | `0x5A` |
-| `I2C0` | `SDA` | `PC0 / I2C0_SDA` | `0x6A` |
-| `I2C0` | `SCL` | `PC1 / I2C0_SCL` | `0x6A` |
-| `USCI0` | `SCL` | `PD0 / USCI0_CLK` | `0x4A` |
-| `USCI0` | `SDA` | `PD1 / USCI0_DAT0` | `0x4A` |
+| `I2C1` | `SDA` | `PA13 / I2C1_SDA` | configured 7-bit |
+| `I2C1` | `SCL` | `PA12 / I2C1_SCL` | configured 7-bit |
+| `I2C0` | `SDA` | `PC0 / I2C0_SDA` | `0x6A` 7-bit |
+| `I2C0` | `SCL` | `PC1 / I2C0_SCL` | `0x6A` 7-bit |
+| `USCI0` | `SCL` | `PD0 / USCI0_CLK` | configured 7-bit |
+| `USCI0` | `SDA` | `PD1 / USCI0_DAT0` | configured 7-bit |
 | all | `GND` | `GND` | common reference |
 
 ## Build Environment
@@ -84,23 +85,27 @@ External SMBus wiring:
 ## Project Layout
 
 - [`SampleCode/Template/main.c`](SampleCode/Template/main.c)
-  - System init, UART0 init, timer service, heartbeat LED, `BP_TYPE` sampling, and profile dispatch.
+  - System init, UART0 init, timer service, debug heartbeat output, `BP_TYPE` sampling, and profile dispatch.
 - [`SampleCode/Template/sgpio_slave.c`](SampleCode/Template/sgpio_slave.c)
   - SGPIO shared GPIO port ISR receiver, frame capture, decode, stability filter, and debug log.
 - [`SampleCode/Template/sgpio_slave.h`](SampleCode/Template/sgpio_slave.h)
   - SGPIO pin macros and public API.
 - [`SampleCode/Template/smbus_slave.c`](SampleCode/Template/smbus_slave.c)
-  - Shared SMBus/PMBus command, PEC, protocol, event, and user hook core.
+  - Shared SMBus protocol parser, PEC, event, recovery, and user hook core.
 - [`SampleCode/Template/smbus_slave.h`](SampleCode/Template/smbus_slave.h)
   - SMBus addresses, command flags, command codes, per-port init/process APIs, and user extension API.
 - [`SampleCode/Template/smbus_slave_core.h`](SampleCode/Template/smbus_slave_core.h)
   - Internal shared SMBus context and core API used by each bus adapter.
+- [`SampleCode/Template/smbus_transaction.c`](SampleCode/Template/smbus_transaction.c)
+  - SMBus Generic transaction-layer command shell with per-instance counters and writable shadows.
+- [`SampleCode/Template/smbus_transaction.h`](SampleCode/Template/smbus_transaction.h)
+  - Internal Generic transaction context and dispatch API used by the shared SMBus core.
 - [`SampleCode/Template/smbus_slave_i2c0.c`](SampleCode/Template/smbus_slave_i2c0.c)
-  - I2C0 SMBus slave adapter for `PC0/PC1`, address `0x6A`.
+  - I2C0 SMBus slave adapter for `PC0/PC1`, address `0x6A`, initialized on every boot.
 - [`SampleCode/Template/smbus_slave_i2c1.c`](SampleCode/Template/smbus_slave_i2c1.c)
-  - I2C1 SMBus slave adapter for `PA2/PA3`, address `0x5A`, enabled only when `BP_TYPE=1`.
+  - I2C1 SMBus slave adapter for `PA13/PA12`, enabled only when `BP_TYPE=1`.
 - [`SampleCode/Template/smbus_slave_usci0.c`](SampleCode/Template/smbus_slave_usci0.c)
-  - USCI0/UI2C0 SMBus slave adapter for `PD0/PD1`, address `0x4A`.
+  - USCI0/UI2C0 SMBus slave adapter for `PD0/PD1`, enabled only when `BP_TYPE=1`.
 - [`SampleCode/Template/timer_service.c`](SampleCode/Template/timer_service.c)
   - Timer task dispatch used by the heartbeat path.
 - [`docs/SGPIO_PROTOCOL_CONTRACT.md`](docs/SGPIO_PROTOCOL_CONTRACT.md)
@@ -117,64 +122,68 @@ task1 id = 0
 task2 id = 1
 task3 id = 2
 BP_TYPE(PF14)=0 -> SGPIO profile
+PC0/I2C0_SDA SMBus slave open-drain
+PC1/I2C0_SCL SMBus slave open-drain
+I2C0 SMBus slave addr7=0x6A write=0xD4 read=0xD5, PEC optional in software
 PA3/SLOAD GPIO input sampled by SCLK
 PA0/SDATAOUT GPIO input sampled by SCLK
 PA2/SCLK shared GPIO ISR rising sampler
 SGPIO GPIO ISR RX path, no SDATAIN TX
-PC0/I2C0_SDA SMBus slave open-drain
-PC1/I2C0_SCL SMBus slave open-drain
-I2C0 SMBus slave addr7=0x6A, PEC optional in software
-PD0/USCI0_CLK SMBus slave open-drain
-PD1/USCI0_DAT0 SMBus slave open-drain
-USCI0 SMBus slave addr7=0x4A, PEC optional in software
-SMBus commands: PMBUS_REVISION, MFR_ID, MFR_MODEL, CLEAR_FAULTS
+SMBus Generic commands: 0x10..0x61 examples, PEC optional in software
 ```
 
-Expected SMBus boot log includes `BP_TYPE=1`, I2C1 pin-role messages, the always-on I2C0/USCI0 ports, and the active slave addresses:
+Expected SMBus boot log includes `BP_TYPE=1` and the active SMBus slave ports:
 
 ```text
 BP_TYPE(PF14)=1 -> 2 Wire SMBus slave profile
-PA2/I2C1_SDA SMBus slave open-drain
-PA3/I2C1_SCL SMBus slave open-drain
-I2C1 SMBus slave addr7=0x5A, PEC optional in software
+PA13/I2C1_SDA SMBus slave open-drain
+PA12/I2C1_SCL SMBus slave open-drain
+I2C1 SMBus slave addr7=<configured>, PEC optional in software
 PC0/I2C0_SDA SMBus slave open-drain
 PC1/I2C0_SCL SMBus slave open-drain
-I2C0 SMBus slave addr7=0x6A, PEC optional in software
+I2C0 SMBus slave addr7=0x6A write=0xD4 read=0xD5, PEC optional in software
 PD0/USCI0_CLK SMBus slave open-drain
 PD1/USCI0_DAT0 SMBus slave open-drain
-USCI0 SMBus slave addr7=0x4A, PEC optional in software
-SMBus commands: PMBUS_REVISION, MFR_ID, MFR_MODEL, CLEAR_FAULTS
+USCI0 SMBus slave addr7=<configured>, PEC optional in software
+SMBus Generic commands: 0x10..0x61 examples, PEC optional in software
 ```
 
-Reference power-on log:
+Reference SMBus power-on logs:
 
-<img src="./Log_power_on.jpg" alt="M032 SGPIO power-on UART log" width="900">
+Generic SMBus profile:
+
+<img src="./Log_power_on_VPP.jpg" alt="M032 Generic SMBus power-on UART log" width="900">
+
+UBM controller profile:
+
+<img src="./Log_power_on_UBM.jpg" alt="M032 UBM controller power-on UART log" width="900">
 
 ### Main Loop
 
 The main loop must remain lightweight:
 
 1. `TimerService_Dispatch()` keeps periodic tasks alive.
-2. `TMR1_IRQHandler()` calls `SMBusSlave_I2C0_Timer1ms()`, `SMBusSlave_USCI0_Timer1ms()`, and `SMBusSlave_I2C1_Timer1ms()` when `BP_TYPE=1` for software SCL-low timeout sampling.
-3. `SMBusSlave_I2C0_Process()` and `SMBusSlave_USCI0_Process()` run every loop.
-4. `SGPIO_Process()` runs only when `BP_TYPE=0`.
-5. `SMBusSlave_I2C1_Process()` runs only when `BP_TYPE=1`.
-6. SGPIO bit capture, SMBus byte transfer, and SMBus SCL-low sampling are not done in the polling loop.
-7. `printf()` must not be called from SGPIO or SMBus ISR paths.
+2. `TMR1_IRQHandler()` always calls `SMBusSlave_I2C0_Timer1ms()`.
+3. `TMR1_IRQHandler()` calls `SMBusSlave_I2C1_Timer1ms()` and `SMBusSlave_USCI0_Timer1ms()` only when `BP_TYPE=1`.
+4. `SMBusSlave_I2C0_Process()` runs every loop.
+5. `SMBusSlave_I2C1_Process()` and `SMBusSlave_USCI0_Process()` run only when `BP_TYPE=1`.
+6. `SGPIO_Process()` runs only when `BP_TYPE=0`.
+7. SGPIO bit capture, SMBus byte transfer, and SMBus SCL-low sampling are not done in the polling loop.
+8. `printf()` must not be called from SGPIO or SMBus ISR paths.
 
 ```mermaid
 flowchart TD
-    A["main() entry"] --> B["SYS / GPIO / UART0 / TIMER1 / SysTick init"]
-    B --> C["TimerService_Init() and TimerService_CreateTask()"]
-    C --> D["Read BP_TYPE once at boot"]
-    D --> E{"Boot profile"}
-    E -->|0: SGPIO| F["SGPIO_Init(): SGPIO receiver"]
-    E -->|1: SMBus| G["SMBusSlave_I2C1_Init(): I2C1 slave"]
-    F --> H["SMBusSlave_I2C0_Init(): I2C0 slave"]
-    G --> H
-    H --> I["SMBusSlave_USCI0_Init(): USCI0 slave"]
-    I --> J["while(1): loop()"]
-    J --> K["loop() foreground processing"]
+    A["main() entry"] --> B["SYS / GPIO init"]
+    B --> D["UART0 / TIMER1 / SysTick init"]
+    D --> E["TimerService_Init() and TimerService_CreateTask()"]
+    E --> F["Read BP_TYPE once at boot"]
+    F --> G["Initialize I2C0 SMBus slave"]
+    G --> H{"Boot profile"}
+    H -->|0: SGPIO| J["SGPIO_Init(): SGPIO receiver"]
+    H -->|1: SMBus| L["Initialize I2C1 and USCI0 SMBus slaves"]
+    J --> M["while(1): loop()"]
+    L --> M
+    M --> N["loop() foreground processing"]
 ```
 
 Timer1 1 ms ISR:
@@ -186,14 +195,12 @@ flowchart TD
     B -->|Yes| C["Clear TIMER1 interrupt flag"]
     C --> D["tick_counter(): update 1 ms counter"]
     D --> E["TimerService_Tick1ms(): age software timers"]
-    E --> F["SMBusSlave_I2C0_Timer1ms(): sample I2C0 SCL low time"]
-    F --> G["SMBusSlave_USCI0_Timer1ms(): sample USCI0 clock low time"]
-    G --> H{"BP_TYPE == SMBus profile?"}
-    H -->|Yes| I["SMBusSlave_I2C1_Timer1ms(): sample I2C1 SCL low time"]
-    H -->|No| J["Skip I2C1 timeout sampling"]
-    I --> K["Latch timeout event for foreground recovery/log"]
-    J --> K
-    K --> Z
+    E --> F["Sample I2C0 clock-low timer"]
+    F --> G{"BP_TYPE == SMBus profile?"}
+    G -->|Yes| H["Sample I2C1 and USCI0 clock-low timers"]
+    G -->|No| Z
+    H --> I["Latch timeout event for foreground recovery/log"]
+    I --> Z
 ```
 
 Foreground loop:
@@ -202,31 +209,38 @@ Foreground loop:
 flowchart TD
     A["loop()"] --> B["TimerService_Dispatch(): run due callbacks"]
     B --> C["SMBusSlave_I2C0_Process(): recover/log pending events"]
-    C --> D["SMBusSlave_USCI0_Process(): recover/log pending events"]
-    D --> E{"BP_TYPE == SMBus profile?"}
-    E -->|Yes| F["SMBusSlave_I2C1_Process(): recover/log pending events"]
-    E -->|No| G["SGPIO_Process(): finalize/copy/decode accepted frames"]
-    F --> H["Return to while(1)"]
-    G --> H
+    C --> D{"BP_TYPE == SMBus profile?"}
+    D -->|Yes| E["Process I2C1 and USCI0 pending recover/log events"]
+    D -->|No| F["SGPIO_Process(): finalize/copy/decode accepted frames"]
+    E --> G["Return to while(1)"]
+    F --> G
 ```
 
 ### SMBus Slave Profile
 
-The SMBus protocol core is shared by three independent slave instances. I2C0 and USCI0 are initialized on every boot. I2C1 is initialized only when `BP_TYPE=1`, because I2C1 shares PA2/PA3 with the SGPIO profile.
+The SMBus protocol core is shared by three independent slave instances. __I2C0 is initialized on every boot and is not controlled by `BP_TYPE`.__ I2C1 and USCI0 are initialized only when `BP_TYPE=1`. When `BP_TYPE=0`, the firmware runs SGPIO plus the always-on I2C0 SMBus slave.
 
 - Addresses:
-  - I2C1: `0x5A` 7-bit, pins `PA2/I2C1_SDA`, `PA3/I2C1_SCL`.
   - I2C0: `0x6A` 7-bit, pins `PC0/I2C0_SDA`, `PC1/I2C0_SCL`.
-  - USCI0/UI2C0: `0x4A` 7-bit, pins `PD0/USCI0_CLK`, `PD1/USCI0_DAT0`. 
-  - `0x7A` is avoided because it is in the I2C reserved `0x78-0x7F` range and its address byte collides with the 10-bit prefix pattern.
-- PEC: software CRC-8 polynomial `0x07`; __`PMBUS_PEC_POLICY` defaults to `PMBUS_PEC_POLICY_OPTIONAL`__. Optional mode validates host PEC when present and appends read PEC. Disabled mode does not generate or accept PEC as an extra byte. Required mode requires valid host PEC for write-side transactions.
+  - I2C1: configured 7-bit address, pins `PA13/I2C1_SDA`, `PA12/I2C1_SCL`.
+  - USCI0/UI2C0: configured 7-bit address, pins `PD0/USCI0_CLK`, `PD1/USCI0_DAT0`.
+- PEC: software CRC-8 polynomial `0x07`; __`SMBUS_PEC_POLICY` defaults to `SMBUS_PEC_POLICY_OPTIONAL`__. Optional mode validates host PEC when present and appends read PEC. Disabled mode does not generate or accept PEC as an extra byte. Required mode requires valid host PEC for write-side transactions.
 - __Timeout__: TMR1 samples each SMBus SCL/CLK pin once per millisecond through the `SMBUS_SLAVE_*` pin defines and raises a software clock-low timeout after `SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS`. `SMBusSlave_*_Process()` only handles the pending recovery/log events. USCI0 `TOCNT` is disabled by default because it is an interrupt-service timeout, not an SMBus clock-low timer.
-- __Enabled SMBus clock pins must idle high with pull-up__. If any enabled SCL/CLK pin is left floating or held low, the software clock-low monitor will repeatedly report timeout and trigger slave recovery. I2C0 and USCI0 are initialized on every boot, so their clock pins also need a valid idle-high level even when only I2C1 is under test.
-- Representative commands:
-  - `PMBUS_REVISION` (`0x98`) as Read Byte with PEC.
-  - `MFR_ID` (`0x99`) and `MFR_MODEL` (`0x9A`) as Block Read with PEC.
-  - `CLEAR_FAULTS` (`0x03`) as Send Byte with optional write-side PEC.
-- Read Word, Write Word, Block Write, and Write Byte are exposed through the user extension APIs and command flags; PEC behavior follows `PMBUS_PEC_POLICY`.
+- __Enabled SMBus clock pins must idle high with pull-up__. If any enabled SCL/CLK pin is left floating or held low, the software clock-low monitor will repeatedly report timeout and trigger slave recovery. Because I2C0 is always initialized, `PC1/I2C0_SCL` also needs a valid idle-high level in SGPIO mode.
+- __Generic SMBus command shell__: the built-in test surface uses selected command IDs from `0x10` to `0x61` and is available on I2C0, I2C1, and USCI0 with independent per-port counters and writable shadows.
+- __Transaction state is per SMBus slave instance.__ I2C0, I2C1, and USCI0 each own one `SMBUS_TRANSACTION_CONTEXT_T`; command shadows, read counters, and process-call counters are not shared across buses.
+- Supported built-in Generic transactions:
+  - `0x10`, `0x11`: Send Byte.
+  - `0x12`, `0x13`: Send Byte selectors for subsequent Receive Byte A/B pure-read transactions.
+  - `0x20`, `0x21`: Write Byte, stored per port.
+  - `0x22`, `0x23`: Read Byte, returns per-port response counters.
+  - `0x30`, `0x31`: Write Word, low byte first, stored per port.
+  - `0x32`, `0x33`: Read Word, low byte is `0x32` or `0x33`, high byte is the per-port response counter.
+  - `0x40`, `0x41`: Block Write, stores the block payload per port.
+  - `0x42`, `0x43`: Block Read, returns the stored block payload or the default 8-byte/16-byte pattern, with the last data byte replaced by the per-port response counter.
+  - `0x50`, `0x51`: Process Call, writes a little-endian word and returns a response word.
+  - `0x60`, `0x61`: Block Write-Read Process Call, writes a block and returns a block response.
+- Process Call and Block Write-Read Process Call are SMBus protocol-layer transactions.
 - User extension API:
   - All hooks include `port_id`, using `SMBUS_SLAVE_PORT_I2C1`, `SMBUS_SLAVE_PORT_I2C0`, or `SMBUS_SLAVE_PORT_USCI0`.
   - `SMBusSlave_UserGetCommandFlags(port_id, command, flags)`
@@ -239,68 +253,32 @@ The SMBus protocol core is shared by three independent slave instances. I2C0 and
   - `SMBusSlave_UserBlockWrite(port_id, command, data, length, pec_present, pec_valid)`
   - `SMBusSlave_UserTimeoutError(port_id)`
 
-#### PMBus Capture Examples
+#### Generic SMBus Command Shell
 
-These captures show the minimum healthy PMBus scan signals on each slave interface:
+Use these command IDs when validating the transaction layer with a host tool:
 
-- `PMBUS_REVISION` (`0x98`): Read Byte with PEC. The host writes the command byte with PEC, issues repeated START, and the slave returns `0x33` plus read PEC.
-- `MFR_ID` (`0x99`): Block Read with PEC. The slave returns byte count, ASCII payload `"MFR_ID_001"`, and read PEC.
-- `MFR_MODEL` (`0x9A`): Block Read with PEC. The slave returns byte count, ASCII payload `"MFR_MODEL_001"`, and read PEC.
-- UART logs confirm the firmware RX decode, selected protocol, TX payload, and PEC status.
+| Command | SMBus transaction | Expected firmware behavior |
+| --- | --- | --- |
+| `0x10`, `0x11` | Send Byte | Accept command and log write done. |
+| `0x12`, `0x13`, then pure read | Receive Byte | Store selector A/B, then `SLA+R` returns one selector-dependent counter byte plus PEC when PEC is enabled. |
+| `0x20`, `0x21` | Write Byte | Store one payload byte in that bus instance. |
+| `0x22`, `0x23` | Read Byte | Return one counter byte plus read PEC when PEC is enabled. |
+| `0x30`, `0x31` | Write Word | Store little-endian SMBus word in that bus instance. |
+| `0x32`, `0x33` | Read Word | Return two bytes plus read PEC when PEC is enabled. |
+| `0x40`, `0x41` | Block Write | Store the block payload in that bus instance. |
+| `0x42`, `0x43` | Block Read | Return count, block data, and read PEC when PEC is enabled. |
+| `0x50`, `0x51` | Process Call | Write one little-endian word, then repeated START read returns a response word plus read PEC when PEC is enabled. |
+| `0x60`, `0x61` | Block Write-Read Process Call | Write a counted block, then repeated START read returns count, block response, and read PEC when PEC is enabled. |
 
-I2C0 PMBus slave, address `0x6A`, pins `PC0/PC1`:
+UART logs use `SMBus RX cmd=...` and `SMBus TX cmd=...`, including the Generic command name, selected protocol, raw bytes, bus name, and PEC status.
 
-`PMBUS_REVISION (0x98)` Read Byte with PEC:
+Full UART reference logs:
 
-<img src="./LA_PMBUS_REVISION_6A.jpg" alt="I2C0 PMBUS_REVISION Read Byte with PEC logic analyzer capture" width="960">
+- [`teraterm_I2C0.log`](teraterm_I2C0.log): Always-on I2C0 Generic SMBus transaction-layer RX/TX log.
+- [`teraterm_vpp.log`](teraterm_vpp.log): Generic SMBus boot and transaction-layer RX/TX log.
+- [`teraterm_ubm.log`](teraterm_ubm.log): UBM controller boot and command RX/TX log.
 
-`MFR_ID (0x99)` Block Read with PEC:
-
-<img src="./LA_MFR_ID_6A.jpg" alt="I2C0 MFR_ID Block Read with PEC logic analyzer capture" width="960">
-
-`MFR_MODEL (0x9A)` Block Read with PEC:
-
-<img src="./LA_MFR_MODEL_6A.jpg" alt="I2C0 MFR_MODEL Block Read with PEC logic analyzer capture" width="960">
-
-I2C0 UART command log:
-
-<img src="./Log_I2C0_PMBUS_CMD.jpg" alt="I2C0 PMBus UART command log" width="900">
-
-I2C1 PMBus slave, address `0x5A`, pins `PA2/PA3`:
-
-`PMBUS_REVISION (0x98)` Read Byte with PEC:
-
-<img src="./LA_PMBUS_REVISION_5A.jpg" alt="I2C1 PMBUS_REVISION Read Byte with PEC logic analyzer capture" width="960">
-
-`MFR_ID (0x99)` Block Read with PEC:
-
-<img src="./LA_MFR_ID_5A.jpg" alt="I2C1 MFR_ID Block Read with PEC logic analyzer capture" width="960">
-
-`MFR_MODEL (0x9A)` Block Read with PEC:
-
-<img src="./LA_MFR_MODEL_5A.jpg" alt="I2C1 MFR_MODEL Block Read with PEC logic analyzer capture" width="960">
-
-I2C1 UART command log:
-
-<img src="./Log_I2C1_PMBUS_CMD.jpg" alt="I2C1 PMBus UART command log" width="900">
-
-USCI0 PMBus slave, address `0x4A`, pins `PD0/PD1`:
-
-`PMBUS_REVISION (0x98)` Read Byte with PEC:
-
-<img src="./LA_PMBUS_REVISION_4A.jpg" alt="USCI0 PMBUS_REVISION Read Byte with PEC logic analyzer capture" width="960">
-
-`MFR_ID (0x99)` Block Read with PEC:
-
-<img src="./LA_MFR_ID_4A.jpg" alt="USCI0 MFR_ID Block Read with PEC logic analyzer capture" width="960">
-
-`MFR_MODEL (0x9A)` Block Read with PEC:
-
-<img src="./LA_MFR_MODEL_4A.jpg" alt="USCI0 MFR_MODEL Block Read with PEC logic analyzer capture" width="960">
-
-USCI0 UART command log:
-
-<img src="./Log_USCI0_PMBUS_CMD.jpg" alt="USCI0 PMBus UART command log" width="900">
+The Generic logs include the intentional bad-PEC validation frame; firmware should report `PEC error` for that frame and then continue with the next transaction.
 
 ### SGPIO Signal Handling Flow
 
@@ -344,7 +322,7 @@ flowchart TD
     N -->|No| C
     N -->|Yes| O["SGPIO_Process finalizes frame"]
     O --> P["Copy ISR result and decode masks"]
-    P --> Q["Apply accepted SGPIO state"]
+    P --> Q["Store accepted SGPIO masks"]
     Q --> R["Rate-limit debug log"]
 ```
 
@@ -553,6 +531,8 @@ Main config files:
 - [`SampleCode/Template/smbus_slave.h`](SampleCode/Template/smbus_slave.h)
 - [`SampleCode/Template/smbus_slave.c`](SampleCode/Template/smbus_slave.c)
 - [`SampleCode/Template/smbus_slave_core.h`](SampleCode/Template/smbus_slave_core.h)
+- [`SampleCode/Template/smbus_transaction.c`](SampleCode/Template/smbus_transaction.c)
+- [`SampleCode/Template/smbus_transaction.h`](SampleCode/Template/smbus_transaction.h)
 - [`SampleCode/Template/smbus_slave_i2c0.c`](SampleCode/Template/smbus_slave_i2c0.c)
 - [`SampleCode/Template/smbus_slave_i2c1.c`](SampleCode/Template/smbus_slave_i2c1.c)
 - [`SampleCode/Template/smbus_slave_usci0.c`](SampleCode/Template/smbus_slave_usci0.c)
@@ -587,15 +567,13 @@ Important SGPIO pin macros:
 #define SGPIO_SLAVE_RX_MAX_BYTES         (8U)
 ```
 
-Important SMBus address and command macros:
+Important SMBus pin, policy, and command macros:
 
 ```c
-#define SMBUS_SLAVE_I2C1_ADDRESS_7BIT        (0x5AU)
 #define SMBUS_SLAVE_I2C0_ADDRESS_7BIT        (0x6AU)
-#define SMBUS_SLAVE_USCI0_ADDRESS_7BIT       (0x4AU)
 
-#define SMBUS_SLAVE_I2C1_SDA                 (PA2)
-#define SMBUS_SLAVE_I2C1_SCL                 (PA3)
+#define SMBUS_SLAVE_I2C1_SDA                 (PA13)
+#define SMBUS_SLAVE_I2C1_SCL                 (PA12)
 #define SMBUS_SLAVE_I2C0_SDA                 (PC0)
 #define SMBUS_SLAVE_I2C0_SCL                 (PC1)
 #define SMBUS_SLAVE_USCI0_CLK                (PD0)
@@ -604,28 +582,43 @@ Important SMBus address and command macros:
 #define SMBUS_SLAVE_CLOCK_LOW_TIMEOUT_MS     (35U)
 #define SMBUS_SLAVE_USCI0_TIMEOUT_INTERRUPT_ENABLE (0U)
 
-#define PMBUS_PEC_POLICY_DISABLED            (0U)
-#define PMBUS_PEC_POLICY_OPTIONAL            (1U)
-#define PMBUS_PEC_POLICY_REQUIRED            (2U)
-#define PMBUS_PEC_POLICY                     PMBUS_PEC_POLICY_OPTIONAL
+#define SMBUS_PEC_POLICY_DISABLED            (0U)
+#define SMBUS_PEC_POLICY_OPTIONAL            (1U)
+#define SMBUS_PEC_POLICY_REQUIRED            (2U)
+#define SMBUS_PEC_POLICY                     SMBUS_PEC_POLICY_OPTIONAL
 
-#define PMBUS_DEBUG_ENABLE                   (1U)
-#define PMBUS_DEBUG_PRINT_RX_FRAME           (1U)
-#define PMBUS_DEBUG_PRINT_TX_READY           (1U)
-#define PMBUS_DEBUG_FRAME_QUEUE_SIZE         (16U)
-#define PMBUS_DEBUG_TX_QUEUE_SIZE            (16U)
+#define SMBUS_DEBUG_ENABLE                   (1U)
+#define SMBUS_DEBUG_PRINT_RX_FRAME           (1U)
+#define SMBUS_DEBUG_PRINT_TX_READY           (1U)
+#define SMBUS_DEBUG_FRAME_QUEUE_SIZE         (8U)
+#define SMBUS_DEBUG_TX_QUEUE_SIZE            (8U)
 
 #define SMBUS_SLAVE_PORT_I2C1                (0U)
 #define SMBUS_SLAVE_PORT_I2C0                (1U)
 #define SMBUS_SLAVE_PORT_USCI0               (2U)
 
-#define SMBUS_SLAVE_PMBUS_CLEAR_FAULTS       (0x03U)
-#define SMBUS_SLAVE_PMBUS_REVISION           (0x98U)
-#define SMBUS_SLAVE_PMBUS_MFR_ID             (0x99U)
-#define SMBUS_SLAVE_PMBUS_MFR_MODEL          (0x9AU)
+#define SMBUS_SLAVE_GENERIC_SEND_BYTE_A      (0x10U)
+#define SMBUS_SLAVE_GENERIC_SEND_BYTE_B      (0x11U)
+#define SMBUS_SLAVE_GENERIC_WRITE_BYTE_A     (0x20U)
+#define SMBUS_SLAVE_GENERIC_WRITE_BYTE_B     (0x21U)
+#define SMBUS_SLAVE_GENERIC_READ_BYTE_A      (0x22U)
+#define SMBUS_SLAVE_GENERIC_READ_BYTE_B      (0x23U)
+#define SMBUS_SLAVE_GENERIC_WRITE_WORD_A     (0x30U)
+#define SMBUS_SLAVE_GENERIC_WRITE_WORD_B     (0x31U)
+#define SMBUS_SLAVE_GENERIC_READ_WORD_A      (0x32U)
+#define SMBUS_SLAVE_GENERIC_READ_WORD_B      (0x33U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_WRITE_A    (0x40U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_WRITE_B    (0x41U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_READ_A     (0x42U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_READ_B     (0x43U)
+#define SMBUS_SLAVE_GENERIC_PROCESS_CALL_A   (0x50U)
+#define SMBUS_SLAVE_GENERIC_PROCESS_CALL_B   (0x51U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_PROC_CALL_A (0x60U)
+#define SMBUS_SLAVE_GENERIC_BLOCK_PROC_CALL_B (0x61U)
 
 #define SMBUS_SLAVE_COMMAND_FLAG_READ_WORD   (0x02U)
 #define SMBUS_SLAVE_COMMAND_FLAG_WRITE_WORD  (0x40U)
+#define SMBUS_SLAVE_COMMAND_FLAG_PROCESS_CALL (0x80U)
 ```
 
 Important internal timing/filter macros:
@@ -684,17 +677,17 @@ Scope / logic analyzer:
   - Check for excessive `printf()` output.
   - Keep SGPIO and SMBus debug logs rate-limited.
   - Confirm no busy-wait or FIFO-drain loop was reintroduced into `SGPIO_Process()` or any `SMBusSlave_*_Process()`.
-- If UART output stops at `PMBus RX cmd=0x` and then prints `HardFault!`:
-  - Treat it as debug logging stack pressure first. The Keil project overrides __`Stack_Size` to `0x00000800`__; keep this override when `PMBUS_DEBUG_ENABLE=1`.
+- If UART output stops at `SMBus RX cmd=0x` and then prints `HardFault!`:
+  - Treat it as debug logging stack pressure first. The Keil project overrides __`Stack_Size` to `0x00000800`__; keep this override when `SMBUS_DEBUG_ENABLE=1`.
   - SMBus event snapshots are static per adapter to keep large debug buffers off the runtime stack.
-  - SMBus RX/TX debug snapshots are queued per adapter by `PMBUS_DEBUG_FRAME_QUEUE_SIZE` and `PMBUS_DEBUG_TX_QUEUE_SIZE`; increase these values if scripted SMBus traffic still reports `RX debug log dropped=...` or `TX debug log dropped=...`.
+  - SMBus RX/TX debug snapshots are queued per adapter by `SMBUS_DEBUG_FRAME_QUEUE_SIZE` and `SMBUS_DEBUG_TX_QUEUE_SIZE`; increase these values if scripted SMBus traffic still reports `RX debug log dropped=...` or `TX debug log dropped=...`.
   - Confirm the reset source on the next boot. `HardFault_Handler()` loops after printing the fault dump and does not intentionally reset the MCU.
 - If SMBus logs show timeout:
-  - Check whether that port's SCL pin is being held low: `PA3/I2C1_SCL`, `PC1/I2C0_SCL`, or `PD0/USCI0_CLK`.
+  - Check whether that port's SCL pin is being held low: `PA12/I2C1_SCL`, `PC1/I2C0_SCL`, or `PD0/USCI0_CLK`.
   - __Confirm every enabled SMBus SCL/CLK pin has pull-up and idles high.__
   - Confirm common GND is present.
-  - I2C0 and USCI0 are initialized on every boot; leaving their clock pins floating or low will cause repeated timeout/recovery logs even if the active host test targets only I2C1.
-  - Confirm only the SMBus profile owns PA2/PA3 when `BP_TYPE=1`.
+  - I2C0 is always initialized, so `PC1/I2C0_SCL` must idle high in both boot profiles.
+  - Confirm `BP_TYPE=1` before expecting I2C1 or USCI0 SMBus slave response.
   - Keep the software SCL-low monitor in `TMR1_IRQHandler()`; do not move it back into `SMBusSlave_*_Process()`.
   - Keep `SMBUS_SLAVE_USCI0_TIMEOUT_INTERRUPT_ENABLE` at `0U` when I2C0/I2C1/USCI0 are externally tied to the same SMBus lines.
 - If logs show frequent `unstable frame ignored`:
@@ -716,11 +709,13 @@ Scope / logic analyzer:
 - `SDATA IN` target-to-initiator transmit is intentionally not implemented yet.
 - `PA0` remains a plain GPIO input in the SGPIO profile; `SDATA OUT` is sampled only by the `SCLK` rising ISR.
 - `PA3 / SLOAD` interrupt is disabled in the SGPIO profile; `SLOAD` is sampled only by the `SCLK` rising ISR.
-- I2C0 and USCI0 SMBus slave ports are initialized on every boot.
-- The I2C1 SMBus slave profile uses PA2/PA3 and does not initialize the SGPIO GPIO ISR.
+- I2C0 SMBus slave is initialized on every boot.
+- I2C1 and USCI0 SMBus slave ports are initialized only when `BP_TYPE=1`.
+- The I2C1 SMBus slave profile uses PA13/PA12 and does not initialize the SGPIO GPIO ISR.
+- The SGPIO profile uses PA2/PA3 and does not initialize I2C1 or USCI0.
 - Keep `SGPIO_Process()` non-blocking. It should finalize/copy/decode/print only.
 - Keep all `SMBusSlave_*_Process()` functions non-blocking. They should recover/log from background context only.
-- Keep `SampleCode/Template/Keil/Template.uvprojx` assembler define __`Stack_Size=0x00000800`__ for PMBus debug logging builds.
+- Keep `SampleCode/Template/Keil/Template.uvprojx` assembler define __`Stack_Size=0x00000800`__ for SMBus debug logging builds.
 - Keep SMBus pin assignment in `smbus_slave.h` so timeout sampling, GPIO bus clear, and peripheral MFP setup use the same definitions.
 - Keep capture ownership in the `SCLK` rising-edge sampling path unless the timing model is re-evaluated.
 - Before publishing, confirm this README contains no local absolute paths or sensitive directory names.
@@ -733,6 +728,8 @@ Scope / logic analyzer:
 - [`SampleCode/Template/smbus_slave.c`](SampleCode/Template/smbus_slave.c)
 - [`SampleCode/Template/smbus_slave.h`](SampleCode/Template/smbus_slave.h)
 - [`SampleCode/Template/smbus_slave_core.h`](SampleCode/Template/smbus_slave_core.h)
+- [`SampleCode/Template/smbus_transaction.c`](SampleCode/Template/smbus_transaction.c)
+- [`SampleCode/Template/smbus_transaction.h`](SampleCode/Template/smbus_transaction.h)
 - [`SampleCode/Template/smbus_slave_i2c0.c`](SampleCode/Template/smbus_slave_i2c0.c)
 - [`SampleCode/Template/smbus_slave_i2c1.c`](SampleCode/Template/smbus_slave_i2c1.c)
 - [`SampleCode/Template/smbus_slave_usci0.c`](SampleCode/Template/smbus_slave_usci0.c)
@@ -743,9 +740,8 @@ Scope / logic analyzer:
 ## Reference Specifications
 
 - SFF-8485: Serial GPIO bus framing and signal timing.
-- SFF-8489: IBPI interpretation for drive slot indicators.
-- SMBus/PMBus command behavior is represented by the firmware command handlers in `smbus_slave.c`.
+- SMBus Generic transaction behavior is represented by the firmware command handlers in `smbus_transaction.c`.
 
 ## Revision
 
-- `2026/06/24`: initial version.
+- `2026/06/29`: initial version.
