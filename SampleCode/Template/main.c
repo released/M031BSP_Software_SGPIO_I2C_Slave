@@ -335,10 +335,10 @@ void TMR1_IRQHandler(void)
 
         TimerService_Tick1ms();
         SMBusSlave_I2C0_Timer1ms();
+        SMBusSlave_I2C1_Timer1ms();
 
         if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
         {
-            SMBusSlave_I2C1_Timer1ms();
             SMBusSlave_USCI0_Timer1ms();
         }
     }
@@ -360,10 +360,10 @@ void loop(void)
     TimerService_Dispatch();
 
     SMBusSlave_I2C0_Process();
+    SMBusSlave_I2C1_Process();
 
     if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
     {
-        SMBusSlave_I2C1_Process();
         SMBusSlave_USCI0_Process();
     }
     else
@@ -564,19 +564,19 @@ int main()
      * Always-on SMBus pins:
      *   I2C0 SDA  : PC.0
      *   I2C0 SCL  : PC.1
-     *
-     * SMBus pins when BP_TYPE is high:
      *   I2C1 SDA  : PA.13
      *   I2C1 SCL  : PA.12
+     *
+     * SMBus pins when BP_TYPE is high:
      *   USCI0 CLK : PD.0
      *   USCI0 DAT0: PD.1
      */
     SMBusSlave_I2C0_Init();
+    BootMatrix_ApplySmbusConfig();
+    SMBusSlave_I2C1_Init();
 
     if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
     {
-        BootMatrix_ApplySmbusConfig();
-        SMBusSlave_I2C1_Init();
         SMBusSlave_USCI0_Init();
     }
     else
@@ -586,14 +586,27 @@ int main()
         SGPIO_SetFrameDecodedCallback(SGPIO_LED_OnFrameDecoded);
         SGPIO_Init();
     }
-    if ((g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE) &&
-        (g_boot_matrix.smbus_role_id == BOOT_SMBUS_ROLE_UBM))
+    if (g_boot_matrix.smbus_role_id == BOOT_SMBUS_ROLE_UBM)
     {
-        printf("SMBus role: I2C1/USCI0 UBM controller, I2C0 Generic SMBus, UBM checksum seed 0xA5\r\n");
+        if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
+        {
+            printf("SMBus role: I2C1/USCI0 UBM controller, I2C0 Generic SMBus, UBM checksum seed 0xA5\r\n");
+        }
+        else
+        {
+            printf("SMBus role: I2C1 UBM controller, I2C0 Generic SMBus, USCI0 disabled, UBM checksum seed 0xA5\r\n");
+        }
     }
     else
     {
-        printf("SMBus role: Generic SMBus commands 0x10..0x61 examples, %s\r\n", SMBUS_PEC_POLICY_TEXT);
+        if (g_boot_profile == BP_TYPE_PROFILE_SMBUS_SLAVE)
+        {
+            printf("SMBus role: I2C1/USCI0 Generic SMBus commands 0x10..0x61 examples, I2C0 Generic SMBus, %s\r\n", SMBUS_PEC_POLICY_TEXT);
+        }
+        else
+        {
+            printf("SMBus role: I2C1 Generic SMBus commands 0x10..0x61 examples, I2C0 Generic SMBus, USCI0 disabled, %s\r\n", SMBUS_PEC_POLICY_TEXT);
+        }
     }
 
     /* Got no where to go, just loop forever */
